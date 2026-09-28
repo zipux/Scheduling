@@ -25,6 +25,7 @@ import {
 } from "@/lib/schedule-warnings";
 import { wageOn, type WageRow } from "@/lib/wages";
 import { enqueueScheduleChange, loadShiftForNotify, weekOfShift } from "./schedule-notify";
+import { checkEligible } from "./requests/common";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Input schemas
@@ -174,7 +175,10 @@ export async function previewWarnings(ctx: BusinessContext, input: ShiftInput & 
   assertCan(ctx, "schedule.edit");
   const { startsAt, endsAt } = await resolveInput(ctx, input);
   const probe = { id: input.id ?? "__new__", membershipId: input.membershipId, startsAt, endsAt, breakMinutes: input.breakMinutes, positionId: input.positionId, locationId: input.locationId };
-  return (await warningsFor(ctx, [probe])).get(probe.id) ?? [];
+  const warnings = (await warningsFor(ctx, [probe])).get(probe.id) ?? [];
+  // §6.0: the same eligibility predicate as trades — informational for a deliberate assignment.
+  const ineligible = input.membershipId ? (await checkEligible(ctx, input.membershipId, probe)).reasons : [];
+  return { warnings, ineligible };
 }
 
 export async function createShift(ctx: BusinessContext, input: ShiftInput) {

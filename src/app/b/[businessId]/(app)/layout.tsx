@@ -20,7 +20,7 @@ export default async function BusinessLayout({ children, params }: LayoutProps<"
   if (hasPermission(ctx, "employees.edit") || hasPermission(ctx, "employees.invite")) items.push("people");
   if (hasPermission(ctx, "timesheets.approve")) items.push("timesheets");
   if (hasPermission(ctx, "reports.view")) items.push("reports");
-  if (hasPermission(ctx, "business.settings") || hasPermission(ctx, "roles.manage") || hasPermission(ctx, "payrules.manage"))
+  if (["business.settings", "roles.manage", "payrules.manage", "blackout.manage"].some((p) => hasPermission(ctx, p as never)))
     items.push("settings");
   items.push("more");
 

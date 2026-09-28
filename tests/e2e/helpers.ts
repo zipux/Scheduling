@@ -11,8 +11,13 @@ export async function signIn(page: Page, email: string, password = PASSWORD) {
 }
 
 /** Signs in a single-business user and returns their business base path, e.g. "/b/abc". */
-export async function signInToBusiness(page: Page, email: string, password = PASSWORD) {
+export async function signInToBusiness(page: Page, email: string, password = PASSWORD, business = /Maple Bistro/) {
   await signIn(page, email, password);
+  // Users who belong to several businesses land on a chooser first.
+  await expect(page.getByRole("heading", { name: "Choose a business" }).or(page.getByRole("heading", { name: /^Welcome,/ }))).toBeVisible();
+  if (await page.getByRole("heading", { name: "Choose a business" }).isVisible()) {
+    await page.getByRole("link", { name: business }).click();
+  }
   await expect(page).toHaveURL(/\/b\/[^/]+$/);
   return new URL(page.url()).pathname;
 }

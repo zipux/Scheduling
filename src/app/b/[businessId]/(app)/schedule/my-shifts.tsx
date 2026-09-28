@@ -4,14 +4,17 @@ import { formatInTimeZone } from "date-fns-tz";
 import { CalendarDays } from "lucide-react";
 import type { BusinessContext } from "@/server/auth/context";
 import { myUpcomingShifts } from "@/server/services/schedule";
+import { tradeState } from "@/server/services/requests/trades";
 import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
 import { CalendarFeedButton } from "./calendar-feed-button";
+import { ShiftTradeActions } from "./shift-trade-actions";
 
 /** Employee view: my upcoming published shifts (§5.3 "My shifts"). */
 export async function MyShifts({ ctx, businessId, hasFeed }: { ctx: BusinessContext; businessId: string; canSeeTeam: boolean; hasFeed: boolean }) {
   const t = await getTranslations("schedule");
   const shifts = await myUpcomingShifts(ctx);
+  const { busy, started } = await tradeState(ctx, shifts);
   return (
     <>
       <PageHeader
@@ -41,6 +44,11 @@ export async function MyShifts({ ctx, businessId, hasFeed }: { ctx: BusinessCont
                     {[s.position?.name, s.location.name].filter(Boolean).join(" · ")}
                   </span>
                   {s.notes && <span className="mt-1 block text-sm">{s.notes}</span>}
+                  {!started.has(s.id) && (
+                    <span className="mt-2 block">
+                      <ShiftTradeActions businessId={businessId} shiftId={s.id} pending={busy.has(s.id)} />
+                    </span>
+                  )}
                 </span>
               </li>
             );

@@ -10,6 +10,7 @@ const SECTIONS: { key: string; href: string; perm: Permission }[] = [
   { key: "business", href: "/settings/business", perm: "business.settings" },
   { key: "locations", href: "/settings/locations", perm: "business.settings" },
   { key: "positions", href: "/settings/positions", perm: "business.settings" },
+  { key: "blackouts", href: "/settings/blackouts", perm: "blackout.manage" },
   { key: "roles", href: "/settings/roles", perm: "roles.manage" },
 ];
 
@@ -18,7 +19,7 @@ export default async function SettingsPage({ params }: PageProps<"/b/[businessId
   const ctx = await requireBusinessPage(businessId);
   const t = await getTranslations("settings");
   const visible = SECTIONS.filter((s) => hasPermission(ctx, s.perm));
-  if (!visible.length && !hasPermission(ctx, "business.settings") && !hasPermission(ctx, "payrules.manage")) notFound();
+  if (!visible.length && !hasPermission(ctx, "payrules.manage")) notFound();
   return (
     <>
       <PageHeader title={t("title")} />

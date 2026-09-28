@@ -220,6 +220,47 @@ async function seedSchedule(biz: Seeded, tz: string) {
   });
 }
 
+/** Sample requests: pending and approved time off, a blackout, availability, a dropped shift. */
+async function seedRequests(biz: Seeded, tz: string) {
+  const businessId = biz.business.id;
+  const today = dateKeyInTz(new Date(), tz);
+  const m = biz.memberships;
+  const allDay = (from: string, to: string) => ({ startsAt: localMidnight(from, tz), endsAt: localMidnight(addDaysKey(to, 1), tz), allDay: true });
+  await db.timeOffRequest.create({ data: { businessId, membershipId: m["emma@maple.example.com"], type: "vacation", reason: "Family visit", ...allDay(addDaysKey(today, 20), addDaysKey(today, 22)) } });
+  await db.timeOffRequest.create({
+    data: { businessId, membershipId: m["noah@maple.example.com"], type: "personal", status: "approved", reviewerId: m["manager@maple.example.com"], reviewedAt: new Date(), ...allDay(addDaysKey(today, 25), addDaysKey(today, 25)) },
+  });
+  await db.blackoutPeriod.create({
+    data: { businessId, startDate: new Date(`${addDaysKey(today, 60)}T00:00:00Z`), endDate: new Date(`${addDaysKey(today, 62)}T00:00:00Z`), reason: "Annual food festival" },
+  });
+  const requestId = "seed-availability-liam";
+  for (let weekday = 0; weekday < 7; weekday++) {
+    await db.availabilityRule.create({
+      data: {
+        businessId,
+        membershipId: m["liam@maple.example.com"],
+        weekday,
+        kind: weekday === 0 || weekday === 6 ? "all_day" : "between",
+        startMinutes: weekday === 0 || weekday === 6 ? null : 16 * 60,
+        endMinutes: weekday === 0 || weekday === 6 ? null : 23 * 60,
+        effectiveFrom: new Date(`${today}T00:00:00Z`),
+        requestId,
+        status: "approved",
+        reviewedAt: new Date(),
+      },
+    });
+  }
+  const miaShift = await db.shift.findFirst({ where: { businessId, membershipId: m["mia@maple.example.com"], status: "published", startsAt: { gt: new Date() } }, orderBy: { startsAt: "asc" } });
+  if (miaShift) {
+    await db.shift.update({ where: { id: miaShift.id }, data: { claimGeneration: { increment: 1 } } });
+    await db.shiftTradeRequest.create({ data: { businessId, type: "drop", shiftId: miaShift.id, fromMembershipId: m["mia@maple.example.com"], status: "pending" } });
+  }
+}
+
+function localMidnight(dateKey: string, tz: string) {
+  return shiftInstants(dateKey, "00:00", "00:01", tz).startsAt;
+}
+
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed in production");
   await truncateAll();
@@ -274,6 +315,7 @@ async function main() {
 
   await seedSchedule(maple, "America/Toronto");
   await seedSchedule(harbour, "America/Vancouver");
+  await seedRequests(maple, "America/Toronto");
 
   console.log("\nSeed complete.");
   console.log(`Password for every seed account: ${SEED_PASSWORD}`);

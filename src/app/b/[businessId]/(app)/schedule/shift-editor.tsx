@@ -50,6 +50,7 @@ export function ShiftEditor({ data, seed, onClose }: { data: BoardData; seed: Ed
     radiusM: s?.geofenceOverride?.mode === "custom" ? String(s.geofenceOverride.radiusM) : "100",
   });
   const [warnings, setWarnings] = useState<ScheduleWarning[]>(s?.warnings ?? []);
+  const [ineligible, setIneligible] = useState<string[]>([]);
   const set = (k: keyof typeof v) => (val: string) => setV((x) => ({ ...x, [k]: val }));
 
   const payload = useMemo(
@@ -79,12 +80,17 @@ export function ShiftEditor({ data, seed, onClose }: { data: BoardData; seed: Ed
     const n = ++seq.current;
     const timer = setTimeout(async () => {
       const res = await previewWarningsAction(data.businessId, { ...payload, id: s?.id ?? null });
-      if (n === seq.current && res.ok) setWarnings(res.data);
+      if (n === seq.current && res.ok) {
+        setWarnings(res.data.warnings);
+        setIneligible(res.data.ineligible);
+      }
     }, 250);
     return () => clearTimeout(timer);
   }, [payload, data.businessId, s?.id]);
 
   const shownWarnings = payload.membershipId && payload.locationId ? warnings : [];
+  // Overlap/time-off/age already appear as warnings; show only what's new here.
+  const shownIneligible = payload.membershipId && payload.locationId ? ineligible.filter((r) => ["POSITION", "LOCATION", "INACTIVE"].includes(r)) : [];
 
   // Suggest eligible people first: those with the position and location.
   const members = [...data.members].sort((a, b) => {
@@ -182,6 +188,11 @@ export function ShiftEditor({ data, seed, onClose }: { data: BoardData; seed: Ed
             </NativeSelect>
             <FieldError errors={fieldErrors.membershipId} />
           </div>
+          {shownIneligible.length > 0 && (
+            <p role="status" className="rounded-md bg-muted p-2 text-sm" data-testid="editor-ineligible">
+              {t("notEligible", { reasons: shownIneligible.map((r) => t(`ineligible.${r}`)).join(", ") })}
+            </p>
+          )}
           {shownWarnings.length > 0 && (
             <div role="alert" className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-50" data-testid="editor-warnings">
               <p className="flex items-center gap-2 font-medium">

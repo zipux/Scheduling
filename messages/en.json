@@ -52,7 +52,14 @@
     "reviewInvitations": "Review invitations",
     "scheduleWarnings": "Upcoming shifts with warnings",
     "scheduleWarningsNone": "No warnings on upcoming shifts.",
-    "openSchedule": "Open schedule"
+    "openSchedule": "Open schedule",
+    "myPending": "{count, plural, =0 {You have no pending requests.} one {You have # pending request.} other {You have # pending requests.}}",
+    "toReview": "{count, plural, one {# request to review} other {# requests to review}}",
+    "escalated": "{count} escalated",
+    "conflicts": "{count, plural, one {# schedule conflict} other {# schedule conflicts}}",
+    "reassign": "Reassign",
+    "makeOpen": "Make open",
+    "keepAnyway": "Keep anyway"
   },
   "placeholder": {
     "notYet": "Not available yet",
@@ -422,6 +429,20 @@
       "new": "New position",
       "ageBadge": "{age}+",
       "summary": "Departments, colours and minimum ages."
+    },
+    "blackouts": {
+      "title": "Blackout dates",
+      "summary": "Dates when time off can't be requested.",
+      "description": "Staff see the reason as soon as they pick a blocked date — not as a denial days later.",
+      "from": "From",
+      "to": "To",
+      "location": "Applies to",
+      "allLocations": "All locations",
+      "reason": "Reason",
+      "reasonHint": "Shown to staff, e.g. \"Holiday season\".",
+      "add": "Add blackout",
+      "saved": "Blackout added.",
+      "delete": "Delete"
     }
   },
   "permissions": {
@@ -565,7 +586,13 @@
     "templateName": "Name",
     "templateNamePlaceholder": "e.g. Dinner close",
     "any": "Any",
-    "saveTemplate": "Save template"
+    "saveTemplate": "Save template",
+    "notEligible": "Not normally eligible for this shift: {reasons}. You can still assign them.",
+    "ineligible": {
+      "POSITION": "doesn't work this position",
+      "LOCATION": "not assigned to this location",
+      "INACTIVE": "no longer has access"
+    }
   },
   "warnings": {
     "unavailableDay": "Marked unavailable this day",
@@ -577,5 +604,100 @@
     "shortRest": "Only {hours} h rest between shifts (minimum {minimum} h)",
     "splitShift": "Shifts span {hours} h this day (maximum {maximum} h)",
     "underAge": "Below the minimum age for this position ({age}; needs {minimum})"
+  },
+  "requests": {
+    "title": "Requests",
+    "tabs": {
+      "mine": "My requests",
+      "available": "Available shifts",
+      "approvals": "Approvals"
+    },
+    "timeOff": "Time off",
+    "requestTimeOff": "Request time off",
+    "blackoutsTitle": "Time off can't be requested on:",
+    "type": "Type",
+    "allDay": "Full day(s)",
+    "from": "From",
+    "to": "To",
+    "date": "Date",
+    "fromTime": "From",
+    "toTime": "To",
+    "reason": "Reason (optional)",
+    "send": "Send request",
+    "timeOffSent": "Request sent.",
+    "types": {
+      "vacation": "Vacation",
+      "sick": "Sick",
+      "personal": "Personal",
+      "unpaid": "Unpaid",
+      "other": "Other"
+    },
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "denied": "Denied",
+      "cancelled": "Cancelled"
+    },
+    "cancel": "Cancel",
+    "availability": "Availability",
+    "myAvailability": "My weekly availability",
+    "availabilityFor": "Availability on {day}",
+    "kinds": {
+      "all_day": "Available all day",
+      "between": "Available between",
+      "unavailable": "Unavailable"
+    },
+    "weekdays": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "effectiveFrom": "Starting from",
+    "saveAvailability": "Save availability",
+    "availabilitySent": "Availability saved.",
+    "availabilityPending": "Your change from {date} is waiting for approval.",
+    "shiftRequests": "Shift requests",
+    "noShiftRequests": "No pending drops, pickups or swaps.",
+    "trade": {
+      "drop": "Drop",
+      "pickup": "Pickup",
+      "swap": "Swap"
+    },
+    "awaitingManager": "Waiting for a manager",
+    "inExchangeFor": "In exchange for {shift} ({who})",
+    "accept": "Accept",
+    "decline": "Decline",
+    "accepted": "Swap accepted.",
+    "noAvailable": "No shifts available",
+    "noAvailableBody": "Open and dropped shifts you're eligible for appear here.",
+    "offeredByCoworker": "Offered by a coworker",
+    "openShift": "Open shift",
+    "claimPending": "Claim pending",
+    "claim": "Pick up",
+    "claimed": "Done.",
+    "escalated": "Escalated",
+    "yours": "Your request",
+    "nothingToReview": "Nothing to review",
+    "fromDate": "from {date}",
+    "note": "Note",
+    "notePlaceholder": "Note (optional)",
+    "approve": "Approve",
+    "deny": "Deny",
+    "approved": "Approved.",
+    "denied": "Denied.",
+    "requestPending": "Request pending",
+    "drop": "Drop",
+    "swap": "Swap",
+    "dropped": "Shift offered to eligible coworkers.",
+    "swapTitle": "Swap this shift",
+    "swapHint": "Only coworkers who could work your shift — and whose shift you could work — are listed.",
+    "loading": "Loading…",
+    "noSwapCandidates": "No eligible swaps in the two weeks around this shift.",
+    "propose": "Propose",
+    "swapProposed": "Swap proposed."
   }
 }

@@ -141,6 +141,7 @@ model Business {
   allowSelfTimeOffApproval  Boolean @default(true)
   escalateAfterHours        Int     @default(72)
   timeOffMinNoticeDays      Int     @default(0)
+  timeOffTypes              String[] @default(["vacation", "sick", "personal", "unpaid", "other"])
   availabilityNeedsApproval Boolean @default(false)
   dropNeedsApproval         Boolean @default(true)
   pickupNeedsApproval       Boolean @default(true)
@@ -442,6 +443,9 @@ model Shift {
   /// Snapshot of the last published state, used to diff notifications (§9.1).
   publishedSnapshot Json?
   publishedAt       DateTime?   @db.Timestamptz(3)
+  /// Incremented each time the shift becomes claimable again (dropped / made open),
+  /// so the one-active-claim index applies per round (§6.3).
+  claimGeneration   Int         @default(0)
   deletedAt         DateTime?   @db.Timestamptz(3)
   createdAt         DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime    @updatedAt @db.Timestamptz(3)
@@ -549,6 +553,8 @@ model ShiftTradeRequest {
   toMembershipId     String?
   /// For swaps: the coworker's shift offered in exchange.
   swapShiftId        String?
+  /// Shift.claimGeneration at the time of a pickup claim.
+  claimGeneration    Int           @default(0)
   coworkerAcceptedAt DateTime?     @db.Timestamptz(3)
   status             RequestStatus @default(pending)
   reviewerId         String?

@@ -85,3 +85,21 @@ Append-only log, newest phase at the bottom.
 - Availability and time-off data sources arrive with Phase 5; the warnings already read them.
 
 **Next:** Phase 5 — Requests (shared eligibility predicate, time off, blackout dates, availability, drop/pickup/swap with concurrency test, approvals, published-shift re-check).
+
+## Phase 5 — Requests — ✅ complete (2026-09-28)
+
+**What works**
+- Shared eligibility predicate `isEligibleFor` (src/lib/eligibility.ts) used by pickup, swap and (informationally) direct assignment: position, location/scope_all, minimum age, overlap, approved time off.
+- Time off: full or partial day, configurable types, blackout dates block at submission with the reason (and are listed on the form), minimum notice (not for sick), cancel while pending, approve/deny with note; self-approval by setting (audited SELF_APPROVED, rules re-checked); Escalated flag when self-approval is off.
+- Blackout dates settings (business-wide or per location, `blackout.manage`).
+- Availability: weekly set with effective-from; approval per business setting.
+- Drop / pickup / swap with per-type approval settings; original employee stays responsible until approved; conditional-update claim + partial unique index per claim round; **ten-simultaneous-claims test passes with exactly one winner, in both approval modes**.
+- §6.4: approving time off or availability re-checks published future shifts → SCHEDULE_CONFLICT cards on the dashboard with Reassign / Make open / Keep anyway.
+- UI: Requests page (My requests, Available shifts, Approvals), Drop/Swap on My shifts with eligible swap candidates, dashboard request counts.
+
+**Tests**: unit 124, integration 90 (incl. concurrency), e2e 52 (+4 skipped by design) on mobile + desktop.
+
+**Known issues / notes**
+- Request notifications are in-app rows only until the Phase 8 bell/preferences UI.
+
+**Next:** Phase 6 — Time clock (punches, breaks, geofence check, offline queue, kiosk devices, missing-punch flow, corrections + audit).

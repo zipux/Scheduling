@@ -21,7 +21,7 @@ export default async function MorePage({ params }: PageProps<"/b/[businessId]/mo
   if (hasPermission(ctx, "employees.edit") || hasPermission(ctx, "employees.invite")) links.push({ href: `${base}/people`, label: t("people") });
   if (hasPermission(ctx, "timesheets.approve")) links.push({ href: `${base}/timesheets`, label: t("timesheets") });
   if (hasPermission(ctx, "reports.view")) links.push({ href: `${base}/reports`, label: t("reports") });
-  if (hasPermission(ctx, "business.settings") || hasPermission(ctx, "roles.manage") || hasPermission(ctx, "payrules.manage"))
+  if (["business.settings", "roles.manage", "payrules.manage", "blackout.manage"].some((p) => hasPermission(ctx, p as never)))
     links.push({ href: `${base}/settings`, label: t("settings") });
   links.push({ href: `${base}/account`, label: t("account") });
   if (memberships.length > 1) links.push({ href: "/", label: t("switchBusiness") });
