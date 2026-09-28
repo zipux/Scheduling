@@ -87,6 +87,14 @@ model Verification {
   @@map("verification")
 }
 
+/// Per-user secret .ics feed (§5.3). Crosses the user's businesses; shows only their own published shifts.
+model CalendarFeed {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  tokenHash String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
 /// Generic fixed-window rate limiter bucket (login, magic link, invitations, exports).
 model RateLimit {
   key         String   @id

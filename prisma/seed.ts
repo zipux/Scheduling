@@ -10,6 +10,7 @@ import { rawDb as db } from "../src/server/db/client";
 import { createBusinessWithDefaults } from "../src/server/platform/business";
 import { pinDigest } from "../src/lib/crypto";
 import { env } from "../src/lib/env";
+import { addDaysKey, dateKeyInTz, shiftInstants, weekStartKey } from "../src/lib/time";
 
 export const SEED_PASSWORD = "password1234";
 
@@ -139,6 +140,86 @@ async function seedBusiness(opts: {
   return { business, locations, positions, memberships, roles };
 }
 
+type Seeded = Awaited<ReturnType<typeof seedBusiness>>;
+
+/**
+ * Two weeks of shifts: this week published, next week as drafts (with one
+ * deliberate under-age assignment so the persistent warning is visible), plus
+ * statutory holidays inside the period.
+ */
+async function seedSchedule(biz: Seeded, tz: string) {
+  const businessId = biz.business.id;
+  const week0 = weekStartKey(dateKeyInTz(new Date(), tz));
+  const loc = biz.locations[0];
+  const pos = (name: string) => biz.positions.get(name) ?? null;
+  const people = Object.entries(biz.memberships);
+  const plan: [number, string, string, number][] = [
+    // [dayOffset, start, end, breakMinutes]
+    [0, "09:00", "17:00", 30],
+    [1, "11:00", "19:00", 30],
+    [2, "16:00", "23:00", 0],
+    [4, "17:00", "01:00", 30],
+    [5, "10:00", "16:00", 0],
+  ];
+  const positionOf = new Map([
+    ["emma@maple.example.com", "Server"],
+    ["noah@maple.example.com", "Kitchen"],
+    ["mia@maple.example.com", "Bar"],
+    ["liam@maple.example.com", "Host"],
+    ["lead@maple.example.com", "Kitchen"],
+    ["assistant@maple.example.com", "Kitchen"],
+    ["manager@maple.example.com", "Server"],
+    ["ava@harbour.example.com", "Barista"],
+    ["sam@example.com", tz === "America/Toronto" ? "Server" : "Cashier"],
+  ]);
+  let i = 0;
+  for (const [email, membershipId] of people) {
+    const position = positionOf.get(email);
+    if (!position) continue;
+    for (const week of [0, 1]) {
+      for (const [k, [offset, start, end, br]] of plan.entries()) {
+        if ((k + i) % 2 === 1) continue; // stagger so people don't all work the same days
+        const date = addDaysKey(week0, week * 7 + offset);
+        await db.shift.create({
+          data: {
+            businessId,
+            locationId: (email === "sam@example.com" || email === "liam@maple.example.com") && biz.locations[1] ? biz.locations[1].id : loc.id,
+            positionId: pos(position),
+            membershipId,
+            ...shiftInstants(date, start, end, tz),
+            breakMinutes: br,
+            status: week === 0 ? "published" : "draft",
+            publishedAt: week === 0 ? new Date() : null,
+          },
+        });
+      }
+    }
+    i++;
+  }
+  // An open shift next week, and a deliberate warning: a 17-year-old on the Bar (18+).
+  await db.shift.create({
+    data: { businessId, locationId: loc.id, positionId: pos(tz === "America/Toronto" ? "Server" : "Barista"), ...shiftInstants(addDaysKey(week0, 10), "17:00", "22:00", tz), status: "published", publishedAt: new Date() },
+  });
+  const liam = biz.memberships["liam@maple.example.com"];
+  if (liam) {
+    await db.shift.create({
+      data: { businessId, locationId: loc.id, positionId: pos("Bar"), membershipId: liam, ...shiftInstants(addDaysKey(week0, 12), "18:00", "23:00", tz), status: "draft" },
+    });
+  }
+  await db.holiday.createMany({
+    data: [
+      { businessId, date: new Date("2026-10-12T00:00:00Z"), name: "Thanksgiving", isStatutory: true, premiumMultiplier: 1.5 },
+      { businessId, date: new Date("2026-12-25T00:00:00Z"), name: "Christmas Day", isStatutory: true, premiumMultiplier: 1.5 },
+    ],
+  });
+  await db.shiftTemplate.createMany({
+    data: [
+      { businessId, name: "Lunch", startMinutes: 11 * 60, endMinutes: 15 * 60, breakMinutes: 0, locationId: loc.id },
+      { businessId, name: "Dinner close", startMinutes: 17 * 60, endMinutes: 25 * 60, breakMinutes: 30, locationId: loc.id },
+    ],
+  });
+}
+
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed in production");
   await truncateAll();
@@ -190,6 +271,9 @@ async function main() {
       { name: "Sam Shared", email: "sam@example.com", role: "employee", pin: "2468", wageCents: 1900, dob: "2001-10-10", positions: ["Cashier"], locations: [0] },
     ],
   });
+
+  await seedSchedule(maple, "America/Toronto");
+  await seedSchedule(harbour, "America/Vancouver");
 
   console.log("\nSeed complete.");
   console.log(`Password for every seed account: ${SEED_PASSWORD}`);

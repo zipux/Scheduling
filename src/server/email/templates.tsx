@@ -60,3 +60,18 @@ export function invitationEmail(p: { url: string; businessName: string; inviterN
     </Layout>,
   );
 }
+
+export function notificationEmail(p: { title: string; body: string; url: string }) {
+  return out(
+    p.title,
+    <Layout preview={p.title}>
+      <Heading as="h2">{p.title}</Heading>
+      <Text>{p.body}</Text>
+      <Section>
+        <Button href={p.url} style={button}>
+          Open my schedule
+        </Button>
+      </Section>
+    </Layout>,
+  );
+}

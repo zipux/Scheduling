@@ -63,7 +63,7 @@ export const TENANT_MODELS = [
 ] as const;
 
 /** Models that must never be reached through a tenant client. */
-export const FORBIDDEN_MODELS = ["Session", "Account", "Verification", "RateLimit"] as const;
+export const FORBIDDEN_MODELS = ["Session", "Account", "Verification", "RateLimit", "CalendarFeed"] as const;
 
 /** Relation (object) fields per model — used to refuse nested writes. Kept in sync by a unit test. */
 export const RELATION_FIELDS: Record<string, readonly string[]> = {

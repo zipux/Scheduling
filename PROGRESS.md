@@ -64,3 +64,24 @@ Append-only log, newest phase at the bottom.
 - Location switcher (§5.2) is built with the schedule in Phase 4.
 
 **Next:** Phase 4 — Scheduling (shifts, open shifts, draft/publish, templates, copy week, persistent warnings, Scheduled wages, .ics feed).
+
+## Phase 4 — Scheduling — ✅ complete (2026-09-28)
+
+**What works**
+- Schedule: week navigation; desktop grid employees × days with an Open shifts row and drag & drop (move day/person, keeps local times); mobile day list with day tabs; location switcher (single by default, All locations adds a location label; remembered; hidden with one location; location required when "All" is selected).
+- Shift editor: date/start/end (overnight aware)/planned break/location/position/employee or open/notes/off-site geofence override (off or custom centre + radius); templates; live warnings at assignment.
+- Persistent warnings (§5.1): unavailable, approved time off, overlap, overtime risk (day/week), short rest, split-shift span, below minimum age — shown in the editor, on the shift (draft and published), in the publish dialog listing every warning of the week, and on the manager dashboard while the shift is in the future.
+- Draft vs published; publish week (only staff whose own shifts changed are notified); edits/deletes of published shifts queue batched before → after notifications (10-min debounce, one message per person per week, flushed every minute in-process; email via dev fallback).
+- Copy last week (DST-correct, idempotent), shift templates.
+- Scheduled wages per day and week for `wages.view`, with Est. loaded cost + tooltip when burden % is set.
+- Statutory holidays shown on the grid/day list.
+- Employees: My shifts, read-only team schedule (published only, no wages, no warnings), private per-user .ics feed (rotatable).
+- Dashboard: next shift card; upcoming shifts with warnings (managers).
+
+**Tests**: unit 105, integration 84 (incl. 50-employee week load < 2 s), e2e 46 (+2 skipped by design) on mobile + desktop.
+
+**Known issues / notes**
+- The in-app notification bell and email preferences UI arrive in Phase 8 (the rows and emails already exist).
+- Availability and time-off data sources arrive with Phase 5; the warnings already read them.
+
+**Next:** Phase 5 — Requests (shared eligibility predicate, time off, blackout dates, availability, drop/pickup/swap with concurrency test, approvals, published-shift re-check).
