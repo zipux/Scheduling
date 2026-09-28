@@ -760,6 +760,11 @@ model PayRules {
   holidayMinEmploymentDays     Int       @default(0)
   holidayMinDaysWorkedLookback Int       @default(0)
   holidayLookbackDays          Int       @default(28)
+  /// How "average day's pay" (§7.6.4) is computed: straight-time wages earned in the
+  /// lookback window divided by the number of days worked ("days_worked") or by a
+  /// fixed number ("fixed"). null = not configured → holiday pay is not calculated.
+  holidayAverageDivisor        String?
+  holidayAverageFixedDivisor   Int?
   updatedAt                    DateTime  @updatedAt @db.Timestamptz(3)
 }
 

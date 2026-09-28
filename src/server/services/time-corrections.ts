@@ -6,6 +6,7 @@ import { can, canEditTimeEntry } from "@/lib/permissions";
 import { roundPunch } from "@/lib/clock";
 import { isBlocking, type TimeFlag } from "@/lib/time-flags";
 import { notify, notifyApprovers } from "./requests/common";
+import { checkBreaks } from "./break-check";
 
 /**
  * Corrections (§7.4). Reason is mandatory; every change writes an immutable
@@ -96,7 +97,45 @@ export async function editEntry(ctx: BusinessContext, input: z.infer<typeof edit
   if (input.clockIn) resolved.push("MISSING_CLOCK_IN");
   await resolveOpenFlags(ctx, e.id, resolved, `corrected: ${input.reason}`);
   await ctx.db.correctionRequest.updateMany({ where: { timeEntryId: e.id, status: "pending" }, data: { status: "approved", reviewerId: ctx.membership.id, reviewedAt: new Date() } });
+  // Re-check the break rule on the corrected entry; a manager's edit that satisfies it is the resolution.
+  const stillMissed = await checkBreaks(ctx.db, e.id);
+  if (!stillMissed.length) await resolveOpenFlags(ctx, e.id, ["BREAK_MISSED"], `corrected: ${input.reason}`);
   await notify(ctx.db, e.membershipId, "time.edited", "Your time was edited", `Reason: ${input.reason}`, { timeEntryId: e.id });
+}
+
+export const resolveBreakSchema = z.discriminatedUnion("resolution", [
+  z.object({ flagId: z.string().min(1), resolution: z.literal("taken"), startsAt: instant, endsAt: instant, reason }).refine((v) => v.endsAt > v.startsAt, {
+    path: ["endsAt"],
+    message: "Ends before it starts",
+  }),
+  z.object({ flagId: z.string().min(1), resolution: z.literal("missed_paid"), reason }),
+]);
+
+/**
+ * §7.6.3 resolution of BREAK_MISSED: "break was taken, add it" (adds the break,
+ * which is then deducted) or "break was missed, pay it" (worked time stays paid).
+ * Either way it's an audited correction.
+ */
+export async function resolveBreakMissed(ctx: BusinessContext, input: z.infer<typeof resolveBreakSchema>) {
+  const f = await ctx.db.timeEntryFlag.findUnique({ where: { id: input.flagId } });
+  if (!f || f.resolvedAt || f.type !== "BREAK_MISSED") throw new UserError("Flag not found.");
+  const e = await loadForEdit(ctx, f.timeEntryId, "timeclock.edit");
+  if (input.resolution === "taken") {
+    if (!e.clockIn || !e.clockOut || input.startsAt < e.clockIn || input.endsAt > e.clockOut) throw new UserError("The break must fall inside the shift.");
+    await editEntry(ctx, {
+      entryId: e.id,
+      clockIn: e.clockIn,
+      clockOut: e.clockOut,
+      breaks: [...e.breaks.map((b) => ({ startsAt: b.startsAt, endsAt: b.endsAt ?? e.clockOut! })), { startsAt: input.startsAt, endsAt: input.endsAt }],
+      reason: `Break was taken: ${input.reason}`,
+    });
+    // If the added break still doesn't satisfy the rule, the flag stays open.
+    return;
+  }
+  await ctx.db.timeEntryFlag.update({ where: { id: f.id }, data: { resolvedAt: new Date(), resolvedById: ctx.userId, resolution: `missed_paid: ${input.reason}` } });
+  await ctx.db.timeEntryAudit.create({
+    data: { timeEntryId: e.id, actorUserId: ctx.userId, action: "resolve_flag", before: { flag: "BREAK_MISSED" }, after: { flag: "BREAK_MISSED", resolution: "missed_paid" }, reason: input.reason } as never,
+  });
 }
 
 export const addEntrySchema = z
@@ -141,6 +180,7 @@ export async function resolveFlag(ctx: BusinessContext, input: z.infer<typeof re
   const f = await ctx.db.timeEntryFlag.findUnique({ where: { id: input.flagId } });
   if (!f || f.resolvedAt) throw new UserError("Flag not found.");
   if (f.type === "MISSING_CLOCK_OUT" || f.type === "MISSING_CLOCK_IN") throw new UserError("Enter the missing time to resolve this.");
+  if (f.type === "BREAK_MISSED") throw new UserError("Say whether the break was taken or missed.");
   const e = await loadForEdit(ctx, f.timeEntryId, "timeclock.edit");
   await ctx.db.timeEntryFlag.update({ where: { id: f.id }, data: { resolvedAt: new Date(), resolvedById: ctx.userId, resolution: input.reason } });
   await ctx.db.timeEntryAudit.create({

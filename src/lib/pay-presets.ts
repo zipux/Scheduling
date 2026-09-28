@@ -22,6 +22,9 @@ export interface PayPreset {
   holidayMinEmploymentDays: number;
   holidayMinDaysWorkedLookback: number;
   holidayLookbackDays: number;
+  /** How an average day's pay is computed; null = the owner must set it before holiday pay is calculated. */
+  holidayAverageDivisor: "days_worked" | "fixed" | null;
+  holidayAverageFixedDivisor: number | null;
   breakRules: { afterHours: number; breakMinutes: number; paidWhenNotTaken: boolean }[];
 }
 
@@ -42,6 +45,8 @@ const GENERIC: PayPreset = {
   holidayMinEmploymentDays: 0,
   holidayMinDaysWorkedLookback: 0,
   holidayLookbackDays: 28,
+  holidayAverageDivisor: null,
+  holidayAverageFixedDivisor: null,
   breakRules: [],
 };
 
@@ -53,6 +58,10 @@ export const PAY_PRESETS: Record<string, PayPreset> = {
     minorAgeThreshold: 18,
     weeklyThresholdHours: 44,
     minimumDailyPayHours: 3,
+    // Regular wages in the 4 weeks before ÷ 20.
+    holidayLookbackDays: 28,
+    holidayAverageDivisor: "fixed",
+    holidayAverageFixedDivisor: 20,
     breakRules: [{ afterHours: 5, breakMinutes: 30, paidWhenNotTaken: false }],
   },
   "CA-BC": {
@@ -71,6 +80,8 @@ export const PAY_PRESETS: Record<string, PayPreset> = {
     holidayMinEmploymentDays: 30,
     holidayMinDaysWorkedLookback: 15,
     holidayLookbackDays: 30,
+    // Wages in the 30 days before ÷ days worked.
+    holidayAverageDivisor: "days_worked",
     breakRules: [{ afterHours: 5, breakMinutes: 30, paidWhenNotTaken: false }],
   },
   "CA-AB": {

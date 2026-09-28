@@ -19,6 +19,7 @@ import {
 } from "@/lib/clock";
 import type { TimeFlag } from "@/lib/time-flags";
 import { parsePermissions } from "@/lib/permissions";
+import { checkBreaks } from "./break-check";
 
 /**
  * Punching (§7.1–§7.3). Shared by the personal clock (session + PIN) and kiosk
@@ -309,7 +310,10 @@ export async function punch(actor: PunchActor, input: z.infer<typeof punchSchema
   ];
   if (shift && isEarlyLeave(t, shift, business.lateToleranceMinutes)) flags.push({ type: "EARLY_LEAVE", detail: { minutes: Math.round((shift.endsAt.getTime() - t.getTime()) / 60_000) } });
   await addFlags(open.id, flags);
-  return { entryId: open.id, action: "out" as const, at: t, flags: flags.map((f) => f.type) };
+  const missed = await checkBreaks(db, open.id, {
+    notify: (mid) => notifyTimeManagers(db, mid, "Break missed", "A required break wasn't punched. Resolve it before the timesheet can be approved."),
+  });
+  return { entryId: open.id, action: "out" as const, at: t, flags: [...flags.map((f) => f.type), ...(missed.length ? (["BREAK_MISSED"] as TimeFlag[]) : [])] };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

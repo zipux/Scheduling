@@ -121,3 +121,33 @@ Append-only log, newest phase at the bottom.
 - Offline shell (service worker) is Phase 9; the punch queue works whenever the page is open.
 
 **Next:** Phase 7a — §7.6 and §7.7 as pure, tested functions with no UI. Every §7.6.9 test must pass before 7b.
+
+## Phase 7a — Pay rules & time-entry flags as pure functions — ✅ complete (2026-09-28)
+
+**What works** (`src/lib/pay/*`, no UI)
+- Work-day and pay-period assignment (§7.6.1), worked time from actual break punches (§7.6.3), BreakRule violations, overtime allocation with the mandatory order of operations (§7.6.2), statutory-holiday premium and average-day entitlement with the inputs shown and override (§7.6.4), vacation accrual (§7.6.5), minimum daily pay (§7.6.6), salaried staff, approval gate with Owner "approve with exceptions" (§7.6.7).
+- §7.7 flag vocabulary and blocking set (`src/lib/time-flags.ts`); BREAK_MISSED now raised at clock-out/after edits with explicit "taken, add it" / "missed, pay it" resolutions.
+- Presets now carry the average-day formula: CA-ON fixed ÷20 over 28 days, CA-BC ÷ days worked over 30 days.
+
+**§7.6.9 required tests — all passing, expected values in `tests/unit/pay-rules.test.ts`** (51 tests):
+- 12-hour day inside a 46-hour week: BC rules → 40 h regular + 6 h daily OT + **0 h weekly OT**, $980.00; Ontario rules → 44 h + 2 h weekly OT, $940.00; 13-h day pays the 13th hour ×2 once.
+- Entry 21:00 Sun → 02:10 Mon: 5 h 10 m wholly in the Oct 5–18 period ($103.33), nothing in the next.
+- DST: 21:00 → 05:00 across fall-back = 9 h; across spring-forward = 7 h.
+- Midnight with workDayStart 04:00: a 01:00 clock-in joins the previous work-day (9 h → 1 h daily OT); with 00:00 it doesn't.
+- Holiday worked eligible ($240 premium), worked ineligible (premium still paid), not worked eligible ($3,200 ÷ 20 = $160), not worked ineligible (inputs show 22 days employed < 30), override, formula not configured → blocked.
+- Vacation accrual: 4% × $980.00 = $39.20.
+- Approval blocked by each of MISSING_CLOCK_OUT, MISSING_CLOCK_IN, BREAK_MISSED, OFFLINE_QUEUED in turn; Owner-with-exceptions allowed; non-blocking flags never block.
+
+**Tests**: unit + integration 304 passing.
+
+### Blocked (§7.6 leaves these open — the app refuses to calculate rather than guess; owner decision needed)
+1. **Weekly overtime with semi-monthly or monthly pay periods** — the spec doesn't define which 7-day week applies when weeks straddle periods, nor how a straddling week is paid. Such timesheets report `WEEK_UNDEFINED` and can't be approved. (Weekly and bi-weekly periods are fine.) Decide: work-week start day, and whether a straddling week's overtime is paid in the period where the week ends.
+2. **Overtime in a week with more than one hourly rate** (position-specific wages) — the spec doesn't say which rate overtime is paid at (rate of the hour worked, a weighted average "regular rate", or the higher rate). Reported as `MIXED_RATE_OVERTIME`; can't be approved. Weeks with one rate, or with no overtime, are unaffected.
+3. **`BreakRule.paidWhenNotTaken`** — stored but has no effect: the spec says the manager resolves a missed break as "taken, add it" or "missed, pay it", and doesn't say what the setting changes (a premium? a default resolution?). Decide its meaning before relying on it.
+4. **Average day's pay formula** — not blocked in code but owner-configured on purpose (divisor: days worked or a fixed number; straight-time wages in the lookback window). Businesses outside CA-ON / CA-BC get `AVERAGE_DAY_NOT_CONFIGURED` until they set it.
+
+### Needs a human look (interpretations, not guesses — see DECISIONS.md)
+- Pay-period membership follows the work-day (a 01:00 Monday clock-in with workDayStart 04:00 belongs to the period containing Sunday).
+- Holiday premium = hours × rate × multiplier **in addition** to normal pay (so ×1.5 means 2.5× total for those hours), and doesn't require eligibility.
+
+**Next:** Phase 7b — pay periods, timesheet screens, approval gate UI, locking, CSV export, Pay rules screen, reports, dashboards.

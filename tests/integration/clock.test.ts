@@ -3,6 +3,7 @@ import { ForbiddenError } from "@/server/auth/context";
 import { tenantDb } from "@/server/db/tenant";
 import { ClockError, clockStatus, punch, raiseMissingClockOuts } from "@/server/services/clock";
 import { hashPin } from "@/server/services/profile";
+import { resolveBreakMissed } from "@/server/services/time-corrections";
 import { editEntry, editEntrySchema, requestCorrection, resolveFlag, reviewCorrection, unresolvedTime, workingNow } from "@/server/services/time-corrections";
 import { authenticateKiosk, createKioskDevice, exitKiosk, kioskIdentify, kioskPunch, kioskStaff } from "@/server/platform/kiosk";
 import { addMember, ctxFor, db, makeBusiness } from "../support/fixtures";
@@ -277,5 +278,47 @@ describe("multi-business isolation (§7.1)", () => {
     const pa = await db.employeeProfile.findUniqueOrThrow({ where: { membershipId: shared.membership.id } });
     const pb = await db.employeeProfile.findUniqueOrThrow({ where: { membershipId: inB.id } });
     expect(pa.pinHmac).not.toBe(pb.pinHmac);
+  });
+});
+
+describe("BREAK_MISSED (§7.6.3)", () => {
+  // The CA-ON preset seeds a rule: after 5 h, a 30-minute break is required.
+  async function nineHoursNoBreak(name: string) {
+    const p = await staff(A, "employee", name);
+    const start = new Date(Date.now() - 9 * 3600_000);
+    await punch(actor(p), { action: "in", pin: PIN, position: here }, { now: start });
+    const r = await punch(actor(p), { action: "out", pin: PIN, position: here });
+    return { p, entryId: r.entryId, start, flags: r.flags };
+  }
+
+  it("is raised at clock-out when the rule isn't satisfied, and managers are told", async () => {
+    const { entryId, flags } = await nineHoursNoBreak("NoBreak1");
+    expect(flags).toContain("BREAK_MISSED");
+    expect(await flagsOf(entryId)).toContain("BREAK_MISSED");
+    expect(await db.notification.count({ where: { membershipId: mgr, type: "time.flag", title: "Break missed" } })).toBeGreaterThan(0);
+  });
+
+  it("'break was missed, pay it': resolved, nothing deducted, audited", async () => {
+    const { entryId } = await nineHoursNoBreak("NoBreak2");
+    const f = await db.timeEntryFlag.findFirstOrThrow({ where: { timeEntryId: entryId, type: "BREAK_MISSED" } });
+    await resolveBreakMissed(await ctxFor(mgr), { flagId: f.id, resolution: "missed_paid", reason: "Slammed at lunch" });
+    expect((await db.timeEntryFlag.findUniqueOrThrow({ where: { id: f.id } })).resolution).toBe("missed_paid: Slammed at lunch");
+    expect(await db.breakEntry.count({ where: { timeEntryId: entryId } })).toBe(0);
+    expect(await db.timeEntryAudit.count({ where: { timeEntryId: entryId, action: "resolve_flag" } })).toBe(1);
+  });
+
+  it("'break was taken, add it': the break is added (and deducted), and the flag resolves", async () => {
+    const { entryId, start } = await nineHoursNoBreak("NoBreak3");
+    const f = await db.timeEntryFlag.findFirstOrThrow({ where: { timeEntryId: entryId, type: "BREAK_MISSED" } });
+    const bStart = new Date(start.getTime() + 4 * 3600_000);
+    await resolveBreakMissed(await ctxFor(mgr), { flagId: f.id, resolution: "taken", startsAt: bStart, endsAt: new Date(bStart.getTime() + 30 * 60_000), reason: "Forgot to punch the break" });
+    expect(await db.breakEntry.count({ where: { timeEntryId: entryId } })).toBe(1);
+    expect((await db.timeEntryFlag.findUniqueOrThrow({ where: { id: f.id } })).resolvedAt).not.toBeNull();
+  });
+
+  it("a generic resolve can't be used for BREAK_MISSED — the manager must say which", async () => {
+    const { entryId } = await nineHoursNoBreak("NoBreak4");
+    const f = await db.timeEntryFlag.findFirstOrThrow({ where: { timeEntryId: entryId, type: "BREAK_MISSED" } });
+    await expect(resolveFlag(await ctxFor(mgr), { flagId: f.id, reason: "whatever" })).rejects.toThrow("taken or missed");
   });
 });

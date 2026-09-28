@@ -276,6 +276,8 @@ async function seedClock(biz: Seeded) {
   await entry("assistant@maple.example.com", { clockIn: hoursAgo(28), clockOut: hoursAgo(20), inLat: (loc.lat ?? 0) + 0.0003, inLng: loc.lng, inAccuracy: 140 }, ["GEO_UNCERTAIN", "LATE"]);
   await entry("liam@maple.example.com", { clockIn: hoursAgo(54), clockOut: hoursAgo(49), inLat: (loc.lat ?? 0) + 0.01, inLng: loc.lng, inAccuracy: 15 }, ["GEO_OUTSIDE", "UNSCHEDULED", "EARLY_LEAVE"]);
   await entry("manager@maple.example.com", { clockIn: hoursAgo(76), clockOut: hoursAgo(68) }, ["OFFSITE"]);
+  // 9 h with no break against the Ontario preset's 5 h / 30 min rule.
+  await entry("gm@maple.example.com", { clockIn: hoursAgo(33), clockOut: hoursAgo(24) }, ["BREAK_MISSED"]);
 }
 
 function localMidnight(dateKey: string, tz: string) {
