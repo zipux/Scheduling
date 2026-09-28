@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateTimesheet, type PayEntry, type TimesheetInput } from "@/lib/pay/calculate";
 import { approvalGate } from "@/lib/pay/approval";
-import { periodContaining, workDayOf } from "@/lib/pay/periods";
+import { periodContaining, periodEndsAt, periodHasEnded, workDayOf } from "@/lib/pay/periods";
 import { breakViolations } from "@/lib/pay/breaks";
 import { localToUtc, addDaysKey } from "@/lib/time";
 import type { TimeFlag } from "@/lib/time-flags";
@@ -182,16 +182,32 @@ describe("§7.6.4 — statutory holiday worked / not worked, eligible / ineligib
   const history = () => Array.from({ length: 20 }, (_, i) => addDaysKey("2026-09-14", i)).map((d) => e(`${d} 09:00`, `${d} 17:00`));
   const worksHoliday = () => e("2026-10-12 10:00", "2026-10-12 18:00");
 
-  it("worked, eligible: premium = 8 h × $20 × 1.5 = $240.00 in addition to the normal $160.00", () => {
-    const r = calculateTimesheet(input([...history(), worksHoliday()], { holidays: [holiday] }));
+  // premiumMultiplier is the TOTAL rate for holiday hours worked: ×1.5 = time and a half
+  // in all, so the premium on top of the normal pay is (1.5 − 1) = ×0.5.
+  it("worked, eligible, BC: 8 h at $20 = $240.00 for the hours worked (not $400): $160.00 normal + $80.00 premium", () => {
+    const r = calculateTimesheet(input([...history(), worksHoliday()], { holidays: [holiday], holidayPremiumRequiresEligibility: true }));
     const v = r.holidays[0];
-    expect(v).toMatchObject({ worked: true, eligible: true, premiumSeconds: 8 * H, premiumCents: 24_000, holidayPayCents: 0 });
-    expect(r.grossCents).toBe(16_000 + 24_000);
+    expect(v).toMatchObject({ worked: true, eligible: true, premiumSeconds: 8 * H, premiumCents: 8_000, holidayPayCents: 0 });
+    expect(r.grossCents).toBe(24_000);
   });
 
-  it("worked, ineligible (hired 1 Oct): the premium still applies — eligibility gates only the not-worked pay", () => {
+  it("worked, ineligible (hired 1 Oct), BC (premium requires eligibility): regular pay only, $160.00", () => {
+    const r = calculateTimesheet(input([worksHoliday()], { holidays: [holiday], hireDate: "2026-10-01", holidayPremiumRequiresEligibility: true }));
+    expect(r.holidays[0]).toMatchObject({ worked: true, eligible: false, premiumSeconds: 0, premiumCents: 0, holidayPayCents: 0 });
+    expect(r.holidays[0].inputs).toMatchObject({ premiumRequiresEligibility: true });
+    expect(r.grossCents).toBe(16_000);
+  });
+
+  it("worked, ineligible, where the premium doesn't require eligibility (the default): $160.00 + $80.00 premium", () => {
     const r = calculateTimesheet(input([worksHoliday()], { holidays: [holiday], hireDate: "2026-10-01" }));
-    expect(r.holidays[0]).toMatchObject({ worked: true, eligible: false, premiumCents: 24_000, holidayPayCents: 0 });
+    expect(r.holidays[0]).toMatchObject({ worked: true, eligible: false, premiumCents: 8_000, holidayPayCents: 0 });
+    expect(r.grossCents).toBe(24_000);
+  });
+
+  it("a ×1 holiday adds no premium", () => {
+    const r = calculateTimesheet(input([...history(), worksHoliday()], { holidays: [{ ...holiday, premiumMultiplier: 1 }] }));
+    expect(r.holidays[0]).toMatchObject({ worked: true, premiumCents: 0 });
+    expect(r.grossCents).toBe(16_000);
   });
 
   it("not worked, eligible: an average day's pay = $3,200.00 ÷ 20 days = $160.00, with the inputs shown", () => {
@@ -246,10 +262,10 @@ describe("§7.6.5 — vacation accrual on an approved timesheet", () => {
     expect(r.vacationAccruedCents).toBe(3_920);
   });
 
-  it("accrues on all gross earnings, including holiday premium: 4% × $400.00 = $16.00", () => {
+  it("accrues on all gross earnings, including holiday premium: 4% × $240.00 = $9.60", () => {
     const r = calculateTimesheet(input([e("2026-10-12 10:00", "2026-10-12 18:00")], { holidays: [{ id: "h", date: "2026-10-12", name: "Thanksgiving", isStatutory: true, premiumMultiplier: 1.5 }] }));
-    expect(r.grossCents).toBe(40_000);
-    expect(r.vacationAccruedCents).toBe(1_600);
+    expect(r.grossCents).toBe(24_000);
+    expect(r.vacationAccruedCents).toBe(960);
   });
 });
 
@@ -314,13 +330,39 @@ describe("other §7.6 rules", () => {
     expect(r.overtime).toEqual([]);
   });
 
-  it("§8 — a raise dated mid-period leaves the whole period at the old rate", () => {
+  it("§8 — a raise effective on day 5 of a 14-day period applies from that work-day on", () => {
+    // Period Oct 5–18; $20 → $25 effective Fri 9 Oct (day 5).
     const wages = [
       { rateCents: 2000, type: "hourly" as const, positionId: null, effectiveFrom: "2026-01-01" },
-      { rateCents: 2500, type: "hourly" as const, positionId: null, effectiveFrom: "2026-10-12" },
+      { rateCents: 2500, type: "hourly" as const, positionId: null, effectiveFrom: "2026-10-09" },
     ];
-    const r = calculateTimesheet(input([e("2026-10-06 09:00", "2026-10-06 17:00"), e("2026-10-13 09:00", "2026-10-13 17:00")], { wages }));
-    expect(r.grossCents).toBe(32_000); // both days at $20, not $20 + $25
+    const days = ["2026-10-08", "2026-10-09", "2026-10-13"].map((d) => e(`${d} 09:00`, `${d} 17:00`));
+    const r = calculateTimesheet(input(days, { wages }));
+    // Day 4 at $20 = $160; day 5 and day 9 at $25 = $200 each → $560.00
+    expect(r.grossCents).toBe(56_000);
+    expect(r.lines).toEqual([
+      expect.objectContaining({ kind: "regular", seconds: 8 * H, rateCents: 2000, cents: 16_000 }),
+      expect.objectContaining({ kind: "regular", seconds: 16 * H, rateCents: 2500, cents: 40_000 }),
+    ]);
+  });
+
+  it("§8 — the work-day decides the wage: a 01:00 clock-in on the raise date is still paid at the old rate", () => {
+    const wages = [
+      { rateCents: 2000, type: "hourly" as const, positionId: null, effectiveFrom: "2026-01-01" },
+      { rateCents: 2500, type: "hourly" as const, positionId: null, effectiveFrom: "2026-10-09" },
+    ];
+    // Clock-in 01:00 Fri 9 Oct belongs to Thursday's work-day (workDayStart 04:00).
+    const r = calculateTimesheet(input([e("2026-10-09 01:00", "2026-10-09 03:00")], { wages }));
+    expect(r.grossCents).toBe(4_000);
+  });
+
+  it("§8 — the previous period is untouched by the raise", () => {
+    const wages = [
+      { rateCents: 2000, type: "hourly" as const, positionId: null, effectiveFrom: "2026-01-01" },
+      { rateCents: 2500, type: "hourly" as const, positionId: null, effectiveFrom: "2026-10-09" },
+    ];
+    const r = calculateTimesheet(input([e("2026-10-02 09:00", "2026-10-02 17:00")], { wages, period: { start: "2026-09-21", end: "2026-10-04" } }));
+    expect(r.grossCents).toBe(16_000);
   });
 
   it("rounded punch times are used for pay when rounding is on (raw kept separately)", () => {
@@ -352,13 +394,63 @@ describe("where the spec is silent, the calculator refuses instead of guessing",
     expect(ot(r, "daily1")).toBe(2 * H);
   });
 
-  it("overtime in a week that mixes two hourly rates → blocked (the spec doesn't say which rate)", () => {
-    const wages = [
-      { rateCents: 1800, type: "hourly" as const, positionId: null, effectiveFrom: "2026-01-01" },
-      { rateCents: 2200, type: "hourly" as const, positionId: "bar", effectiveFrom: "2026-01-01" },
-    ];
+  it("no wage on file → blocked", () => {
+    const r = calculateTimesheet(input([e("2026-10-06 09:00", "2026-10-06 17:00")], { wages: [] }));
+    expect(r.blocked.map((b) => b.code)).toEqual(["NO_WAGE"]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe("overtime with more than one hourly rate — paid at the weighted-average straight-time rate", () => {
+  const wages = [
+    { rateCents: 1800, type: "hourly" as const, positionId: null, effectiveFrom: "2026-01-01" },
+    { rateCents: 2200, type: "hourly" as const, positionId: "bar", effectiveFrom: "2026-01-01" },
+  ];
+
+  it("daily OT at that work-day's weighted average: 5 h @ $18 + 6 h @ $22 in one day (BC)", () => {
     const r = calculateTimesheet(input([e("2026-10-06 09:00", "2026-10-06 14:00"), e("2026-10-06 15:00", "2026-10-06 21:00", { positionId: "bar" })], { wages }));
-    expect(r.blocked.map((b) => b.code)).toEqual(["MIXED_RATE_OVERTIME"]);
+    expect(r.blocked).toEqual([]);
+    expect(r.regularSeconds).toBe(8 * H);
+    expect(ot(r, "daily1")).toBe(3 * H);
+    // Regular (chronological, each hour at its own rate): 5 × $18 + 3 × $22 = $156.00
+    // Day average: (5 × $18 + 6 × $22) ÷ 11 h = $222 ÷ 11 = $20.1818…/h
+    // Daily OT: 3 h × $20.1818… × 1.5 = $90.818… → $90.82
+    expect(r.grossCents).toBe(15_600 + 9_082);
+  });
+
+  it("weekly OT at that week's weighted average: 36 h @ $18 + 9 h @ $22 (Ontario, 44 h)", () => {
+    const week = [
+      ...["05", "06", "07", "08"].map((d) => e(`2026-10-${d} 09:00`, `2026-10-${d} 18:00`)),
+      e("2026-10-09 09:00", "2026-10-09 18:00", { positionId: "bar" }),
+    ];
+    const r = calculateTimesheet(input(week, { wages, rules: ON }));
+    expect(r.blocked).toEqual([]);
+    expect(r.regularSeconds).toBe(44 * H);
+    expect(ot(r, "weekly")).toBe(1 * H);
+    // Regular: 36 × $18 + 8 × $22 = $824.00
+    // Week average: (36 × $18 + 9 × $22) ÷ 45 h = $846 ÷ 45 = $18.80/h
+    // Weekly OT: 1 h × $18.80 × 1.5 = $28.20
+    expect(r.grossCents).toBe(82_400 + 2_820);
+  });
+
+  it("weekly OT averages only the hours the weekly threshold counted, not hours already paid as daily OT", () => {
+    // BC: Mon 12 h @ $22 (4 h daily OT, consumed) + Tue–Fri 9 h @ $18 (1 h daily OT each) = 48 h.
+    // Non-consumed: 8 h @ $22 + 32 h @ $18 = 40 h → no weekly OT. Add Sat 2 h @ $18 → 42 h non-consumed, 2 h weekly OT.
+    const week = [
+      e("2026-10-05 07:00", "2026-10-05 19:00", { positionId: "bar" }),
+      ...["06", "07", "08", "09"].map((d) => e(`2026-10-${d} 09:00`, `2026-10-${d} 18:00`)),
+      e("2026-10-10 09:00", "2026-10-10 11:00"),
+    ];
+    const r = calculateTimesheet(input(week, { wages }));
+    expect(ot(r, "daily1")).toBe(8 * H);
+    expect(ot(r, "weekly")).toBe(2 * H);
+    // Weekly average over the 42 non-consumed hours: (8 × $22 + 34 × $18) ÷ 42 = $788 ÷ 42 = $18.7619…/h
+    // Weekly OT: 2 h × $18.7619… × 1.5 = $56.2857… → $56.29
+    const weeklyLine = r.lines.find((l) => l.label.startsWith("Weekly"));
+    expect(weeklyLine?.cents).toBe(5_629);
+    // Daily OT: Mon 4 h at Mon's average ($22) × 1.5 = $132.00; Tue–Fri 1 h each at $18 × 1.5 = $27.00 × 4 = $108.00
+    // Regular: 8 × $22 + 32 × $18 = $752.00 (the Sat hours are the weekly OT)
+    expect(r.grossCents).toBe(75_200 + 13_200 + 10_800 + 5_629);
   });
 
   it("two rates with no overtime is fine", () => {
@@ -370,9 +462,49 @@ describe("where the spec is silent, the calculator refuses instead of guessing",
     expect(r.blocked).toEqual([]);
     expect(r.grossCents).toBe(3 * 1800 + 3 * 2200);
   });
+});
 
-  it("no wage on file → blocked", () => {
-    const r = calculateTimesheet(input([e("2026-10-06 09:00", "2026-10-06 17:00")], { wages: [] }));
-    expect(r.blocked.map((b) => b.code)).toEqual(["NO_WAGE"]);
+// ─────────────────────────────────────────────────────────────────────────────
+describe("§7.6.1 — a pay period ends at workDayStart on the day after its last date", () => {
+  const P = { start: "2026-10-05", end: "2026-10-18" };
+
+  it("the Oct 5–18 period ends at 04:00 Monday 19 Oct, not at midnight", () => {
+    expect(periodEndsAt(P, [TZ], 240)).toEqual(localToUtc("2026-10-19", "04:00", TZ));
+    expect(periodHasEnded(P, localToUtc("2026-10-19", "00:00", TZ), [TZ], 240)).toBe(false);
+    expect(periodHasEnded(P, localToUtc("2026-10-19", "03:59", TZ), [TZ], 240)).toBe(false);
+    expect(periodHasEnded(P, localToUtc("2026-10-19", "04:00", TZ), [TZ], 240)).toBe(true);
+  });
+
+  it("with locations in several timezones, the period ends at the latest of them", () => {
+    // 04:00 in Vancouver is 07:00 in Toronto.
+    expect(periodEndsAt(P, [TZ, "America/Vancouver"], 240)).toEqual(localToUtc("2026-10-19", "07:00", TZ));
+  });
+
+  it("a 01:00 Monday clock-in can never land in an already-approved period", () => {
+    // Approval requires periodHasEnded(now). A clock-in joins the period of its work-day.
+    const clockIn = localToUtc("2026-10-19", "01:00", TZ);
+    const joins = periodContaining("biweekly", "2026-10-05", workDayOf(clockIn, TZ, 240));
+    expect(joins).toEqual(P); // it joins Sunday's work-day → the Oct 5–18 period…
+    expect(periodHasEnded(joins, clockIn, [TZ], 240)).toBe(false); // …which cannot have been approved yet.
+  });
+
+  it("the same holds for every clock-in instant: the period it joins always ends after it (5-minute sweep, DST included)", () => {
+    const windows = [
+      ["2026-10-17", "2026-10-21"], // period boundary
+      ["2026-10-31", "2026-11-03"], // fall back (and the next boundary)
+      ["2026-03-06", "2026-03-11"], // spring forward (and a boundary on Mon 9 Mar)
+    ];
+    for (const frequency of ["weekly", "biweekly"] as const) {
+      for (const wds of [0, 150, 240, 360]) {
+        for (const [from, to] of windows) {
+          const end = localToUtc(to, "00:00", TZ).getTime();
+          for (let t = localToUtc(from, "00:00", TZ).getTime(); t < end; t += 5 * 60_000) {
+            const clockIn = new Date(t);
+            const p = periodContaining(frequency, "2026-10-05", workDayOf(clockIn, TZ, wds));
+            if (periodHasEnded(p, clockIn, [TZ], wds)) throw new Error(`${frequency} wds=${wds}: clock-in ${clockIn.toISOString()} joins ${p.start}–${p.end}, which had already ended`);
+          }
+        }
+      }
+    }
   });
 });

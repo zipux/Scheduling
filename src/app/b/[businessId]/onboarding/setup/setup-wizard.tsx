@@ -76,7 +76,7 @@ export function SetupWizard(props: {
           <div className="space-y-2">
             <Label htmlFor="freq">{t("frequency")}</Label>
             <NativeSelect id="freq" value={frequency} onChange={(e) => setFrequency(e.target.value)}>
-              {(["weekly", "biweekly", "semimonthly", "monthly"] as const).map((f) => (
+              {(["weekly", "biweekly"] as const).map((f) => (
                 <option key={f} value={f}>
                   {t(`frequencies.${f}`)}
                 </option>

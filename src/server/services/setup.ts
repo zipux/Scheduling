@@ -8,7 +8,8 @@ import { payRulesSchema, savePayRules } from "./pay-rules";
 
 export const setupSchema = z.object({
   location: locationSchema,
-  payPeriodFrequency: z.enum(["weekly", "biweekly", "semimonthly", "monthly"]),
+  // Weekly and bi-weekly only: weekly overtime is undefined for semi-monthly/monthly periods (DECISIONS).
+  payPeriodFrequency: z.enum(["weekly", "biweekly"]),
   payPeriodAnchorDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the first day of a pay period"),
   payRules: payRulesSchema,
 });

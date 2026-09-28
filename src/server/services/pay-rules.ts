@@ -82,6 +82,7 @@ export const holidayRulesSchema = z
     holidayLookbackDays: z.coerce.number().int().min(1).max(366),
     holidayAverageDivisor: z.enum(["days_worked", "fixed"]).nullable(),
     holidayAverageFixedDivisor: z.preprocess((v) => (v === "" || v === null || v === undefined ? null : Number(v)), z.number().int().min(1).max(366).nullable()),
+    holidayPremiumRequiresEligibility: z.boolean().default(false),
   })
   .refine((v) => v.holidayAverageDivisor !== "fixed" || v.holidayAverageFixedDivisor, { path: ["holidayAverageFixedDivisor"], message: "Enter the number to divide by" });
 
@@ -97,7 +98,6 @@ export async function saveHolidayRules(ctx: BusinessContext, input: z.infer<type
 export const breakRuleSchema = z.object({
   afterHours: z.coerce.number().min(0.5).max(24),
   breakMinutes: z.coerce.number().int().min(5).max(240),
-  paidWhenNotTaken: z.boolean().default(false),
 });
 
 export async function addBreakRule(ctx: BusinessContext, input: z.infer<typeof breakRuleSchema>) {

@@ -895,7 +895,7 @@
     "breakMinutes": "Break (minutes)",
     "addBreakRule": "Add rule",
     "holidays": "Statutory holidays",
-    "holidaysHint": "Worked → premium hours at the holiday's multiplier, on top of normal pay. Not worked → an average day's pay if the employee passes this test.",
+    "holidaysHint": "Worked → those hours are paid at the holiday's total rate (×1.5 = time and a half in all). Not worked → an average day's pay if the employee passes this test.",
     "editHolidays": "Edit the holiday calendar",
     "minEmployment": "Employed at least (days)",
     "minWorked": "Days worked in the lookback, at least",
@@ -905,7 +905,8 @@
     "averageDaysWorked": "Straight-time wages in the window ÷ days worked",
     "averageFixed": "Straight-time wages in the window ÷ a fixed number",
     "averageHint": "The spec doesn't fix this formula, so you choose it. Ontario's rule is ÷20 over the 4 weeks before; BC's is ÷ days worked over the 30 days before.",
-    "fixedDivisor": "Divide by"
+    "fixedDivisor": "Divide by",
+    "premiumRequiresEligibility": "Working a holiday earns the premium only if the employee passes this test (otherwise regular pay)"
   },
   "holidaysPage": {
     "title": "Holidays",
@@ -914,7 +915,7 @@
     "presetAdded": "Holidays added.",
     "date": "Date",
     "name": "Name",
-    "multiplier": "Premium ×",
+    "multiplier": "Total rate ×",
     "add": "Add",
     "added": "Holiday added.",
     "statutory": "Statutory",

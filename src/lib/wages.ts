@@ -3,8 +3,9 @@
  *
  * - A position-specific wage beats the general wage for that position.
  * - Within a kind, the latest effectiveFrom on or before the date wins.
- * - Pay for a period uses the wage in force on the period's FIRST day, so a raise
- *   dated mid-period leaves the whole current period at the old rate (§8).
+ * - Pay uses the wage in force on the work-day each hour was worked (`wageOn`), so a
+ *   raise effective mid-period applies from its effective date. Approved periods never
+ *   change: their numbers are a snapshot, and a wage can't be back-dated into one.
  */
 export interface WageRow {
   rateCents: number;
@@ -27,10 +28,6 @@ export function wageOn(rows: WageRow[], date: string, positionId?: string | null
     if (specific) return specific;
   }
   return latest(rows.filter((r) => r.positionId === null), date);
-}
-
-export function wageForPeriod(rows: WageRow[], periodStart: string, positionId?: string | null): WageRow | null {
-  return wageOn(rows, periodStart, positionId);
 }
 
 export function toDateKey(d: Date): string {

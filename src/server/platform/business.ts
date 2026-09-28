@@ -61,6 +61,7 @@ export async function createBusinessWithDefaults(tx: Tx, input: NewBusinessInput
       holidayLookbackDays: preset.holidayLookbackDays,
       holidayAverageDivisor: preset.holidayAverageDivisor,
       holidayAverageFixedDivisor: preset.holidayAverageFixedDivisor,
+      holidayPremiumRequiresEligibility: preset.holidayPremiumRequiresEligibility,
     },
   });
   for (const br of preset.breakRules) {

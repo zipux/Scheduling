@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/app/native-select";
 import { TextField } from "@/components/app/form-fields";
@@ -74,7 +75,7 @@ export function BreakRuleForm({ businessId }: { businessId: string }) {
       className="flex flex-wrap items-end gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        run(() => addBreakRuleAction(businessId, { afterHours: Number(after), breakMinutes: Number(minutes), paidWhenNotTaken: false }), () => router.refresh(), { success: t("saved") });
+        run(() => addBreakRuleAction(businessId, { afterHours: Number(after), breakMinutes: Number(minutes) }), () => router.refresh(), { success: t("saved") });
       }}
     >
       <TextField id="br-after" inputMode="decimal" label={t("afterHours")} value={after} onChange={setAfter} errors={fieldErrors.afterHours} />
@@ -92,6 +93,7 @@ type HolidayValues = {
   holidayLookbackDays: string;
   holidayAverageDivisor: "days_worked" | "fixed" | "";
   holidayAverageFixedDivisor: string;
+  holidayPremiumRequiresEligibility: boolean;
 };
 
 export function HolidayRulesForm({ businessId, initial, holidaysLink }: { businessId: string; initial: HolidayValues; holidaysLink: React.ReactNode }) {
@@ -130,6 +132,10 @@ export function HolidayRulesForm({ businessId, initial, holidaysLink }: { busine
       {v.holidayAverageDivisor === "fixed" && (
         <TextField id="hr-fixed" inputMode="numeric" label={t("fixedDivisor")} value={v.holidayAverageFixedDivisor} onChange={set("holidayAverageFixedDivisor")} errors={fieldErrors.holidayAverageFixedDivisor} />
       )}
+      <label className="flex min-h-11 items-center gap-3">
+        <Checkbox className="size-5" checked={v.holidayPremiumRequiresEligibility} onCheckedChange={(c) => set("holidayPremiumRequiresEligibility")(!!c)} />
+        <span className="text-sm">{t("premiumRequiresEligibility")}</span>
+      </label>
       <FieldError errors={fieldErrors._} />
       <Button type="submit" disabled={pending}>
         {t("save")}

@@ -1,12 +1,13 @@
 import "server-only";
 import { z } from "zod";
+import { formatInTimeZone } from "date-fns-tz";
 import { accessibleLocationIds, assertCan, ForbiddenError, type BusinessContext } from "@/server/auth/context";
 import { UserError } from "@/server/action";
 import { audit } from "@/server/audit";
 import { can, canManagePerson, canViewWage } from "@/lib/permissions";
 import { addDaysKey, dateKeyInTz, isDateKey } from "@/lib/time";
 import { calculateTimesheet, entryWorkDay, type PayEntry, type TimesheetInput, type TimesheetResult } from "@/lib/pay/calculate";
-import { periodContaining, inPeriod, type Frequency, type Period } from "@/lib/pay/periods";
+import { periodContaining, periodEndsAt, periodHasEnded, inPeriod, type Frequency, type Period } from "@/lib/pay/periods";
 import { approvalGate } from "@/lib/pay/approval";
 import type { TimeFlag } from "@/lib/time-flags";
 import { notify } from "./requests/common";
@@ -88,6 +89,7 @@ async function loadInputs(ctx: BusinessContext, membershipIds: string[], period:
       vacationPayPercent: Number(b.vacationPayPercent),
       breakRules: cfg.breakRules.map((x) => ({ id: x.id, afterHours: Number(x.afterHours), breakMinutes: x.breakMinutes })),
       holidayRule: { minEmploymentDays: r.holidayMinEmploymentDays, minDaysWorked: r.holidayMinDaysWorkedLookback, lookbackDays: r.holidayLookbackDays },
+      holidayPremiumRequiresEligibility: r.holidayPremiumRequiresEligibility,
       average: { divisor: (r.holidayAverageDivisor as "days_worked" | "fixed" | null) ?? null, fixedDivisor: r.holidayAverageFixedDivisor },
       wages: wages
         .filter((w) => w.membershipId === m.id)
@@ -205,9 +207,15 @@ export async function approveTimesheet(ctx: BusinessContext, input: z.infer<type
     endOverride = end;
   }
 
-  // A normal approval is for a finished period; a Final timesheet may close one early.
-  const today = dateKeyInTz(new Date(), ctx.business.timezone);
-  if (!input.final && period.end >= today) throw new UserError(`This pay period ends on ${period.end}. Approve it after it has ended.`);
+  // A normal approval is for a finished period — one that ended at workDayStart on the day
+  // after its last date, so no later clock-in can join it. A Final timesheet may close one early.
+  if (!input.final) {
+    const tzs = [ctx.business.timezone, ...(await ctx.db.location.findMany({ select: { timezone: true } })).map((l) => l.timezone)];
+    if (!periodHasEnded(period, new Date(), tzs, ctx.business.workDayStartMinutes)) {
+      const at = periodEndsAt(period, tzs, ctx.business.workDayStartMinutes);
+      throw new UserError(`This pay period ends at ${formatInTimeZone(at, ctx.business.timezone, "yyyy-MM-dd HH:mm")}. Approve it after it has ended.`);
+    }
+  }
 
   const cfg = await payConfig(ctx);
   const inputData = (await loadInputs(ctx, [m.id], period, cfg, endOverride)).get(m.id)!;

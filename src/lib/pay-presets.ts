@@ -25,7 +25,9 @@ export interface PayPreset {
   /** How an average day's pay is computed; null = the owner must set it before holiday pay is calculated. */
   holidayAverageDivisor: "days_worked" | "fixed" | null;
   holidayAverageFixedDivisor: number | null;
-  breakRules: { afterHours: number; breakMinutes: number; paidWhenNotTaken: boolean }[];
+  /** Working a holiday earns the premium only if the eligibility test passes. */
+  holidayPremiumRequiresEligibility: boolean;
+  breakRules: { afterHours: number; breakMinutes: number }[];
 }
 
 const GENERIC: PayPreset = {
@@ -47,6 +49,7 @@ const GENERIC: PayPreset = {
   holidayLookbackDays: 28,
   holidayAverageDivisor: null,
   holidayAverageFixedDivisor: null,
+  holidayPremiumRequiresEligibility: false,
   breakRules: [],
 };
 
@@ -62,7 +65,7 @@ export const PAY_PRESETS: Record<string, PayPreset> = {
     holidayLookbackDays: 28,
     holidayAverageDivisor: "fixed",
     holidayAverageFixedDivisor: 20,
-    breakRules: [{ afterHours: 5, breakMinutes: 30, paidWhenNotTaken: false }],
+    breakRules: [{ afterHours: 5, breakMinutes: 30 }],
   },
   "CA-BC": {
     ...GENERIC,
@@ -82,7 +85,9 @@ export const PAY_PRESETS: Record<string, PayPreset> = {
     holidayLookbackDays: 30,
     // Wages in the 30 days before ÷ days worked.
     holidayAverageDivisor: "days_worked",
-    breakRules: [{ afterHours: 5, breakMinutes: 30, paidWhenNotTaken: false }],
+    // An ineligible employee who works the holiday gets regular pay only.
+    holidayPremiumRequiresEligibility: true,
+    breakRules: [{ afterHours: 5, breakMinutes: 30 }],
   },
   "CA-AB": {
     ...GENERIC,
@@ -94,7 +99,7 @@ export const PAY_PRESETS: Record<string, PayPreset> = {
     weeklyThresholdHours: 44,
     weeklyMultiplier: 1.5,
     minimumDailyPayHours: 3,
-    breakRules: [{ afterHours: 5, breakMinutes: 30, paidWhenNotTaken: false }],
+    breakRules: [{ afterHours: 5, breakMinutes: 30 }],
   },
   "CA-QC": {
     ...GENERIC,
@@ -103,7 +108,7 @@ export const PAY_PRESETS: Record<string, PayPreset> = {
     minorAgeThreshold: 18,
     weeklyThresholdHours: 40,
     minimumDailyPayHours: 3,
-    breakRules: [{ afterHours: 5, breakMinutes: 30, paidWhenNotTaken: false }],
+    breakRules: [{ afterHours: 5, breakMinutes: 30 }],
   },
   "US-CA": {
     ...GENERIC,
@@ -117,7 +122,7 @@ export const PAY_PRESETS: Record<string, PayPreset> = {
     weeklyThresholdHours: 40,
     weeklyMultiplier: 1.5,
     vacationPayPercent: 0,
-    breakRules: [{ afterHours: 5, breakMinutes: 30, paidWhenNotTaken: true }],
+    breakRules: [{ afterHours: 5, breakMinutes: 30 }],
   },
   "US-*": { ...GENERIC, key: "US-*", label: "United States — federal baseline", minorAgeThreshold: 18, vacationPayPercent: 0 },
   GENERIC,

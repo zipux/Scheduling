@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { distanceM, recommendGeofence } from "@/lib/geo";
-import { wageForPeriod, wageOn, type WageRow } from "@/lib/wages";
+import { wageOn, type WageRow } from "@/lib/wages";
 
 describe("haversine distance", () => {
   it("is zero for the same point", () => expect(distanceM({ lat: 43.65, lng: -79.38 }, { lat: 43.65, lng: -79.38 })).toBe(0));
@@ -53,10 +53,9 @@ describe("wage resolution (§8)", () => {
     expect(wageOn(rows, "2026-07-01", "kitchen")?.rateCents).toBe(1800);
   });
   it("returns null before the first wage", () => expect(wageOn(rows, "2025-12-31")).toBeNull());
-  it("a raise dated mid-period leaves the whole period at the old rate", () => {
-    // Period 2026-05-25 .. 2026-06-07; raise effective 2026-06-01.
-    expect(wageForPeriod(rows, "2026-05-25")?.rateCents).toBe(1700);
-    // Next period picks up the raise.
-    expect(wageForPeriod(rows, "2026-06-08")?.rateCents).toBe(1800);
+  it("a raise applies from its effective date, even mid-period", () => {
+    // Raise effective 2026-06-01.
+    expect(wageOn(rows, "2026-05-31")?.rateCents).toBe(1700);
+    expect(wageOn(rows, "2026-06-01")?.rateCents).toBe(1800);
   });
 });

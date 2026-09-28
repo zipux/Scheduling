@@ -190,3 +190,9 @@ Append-only log, newest phase at the bottom.
 ## Run stopped after Phase 8 (2026-09-28)
 
 Stopped on the owner's instruction after Phase 8. Phase 9 (PWA and offline shell, accessibility pass, empty/loading/error states, the §10.1 data-export payload, the final full e2e run and the full README) has not been started. The README is still the short quick-start version.
+
+## Owner decisions on the Blocked list (2026-09-28)
+
+All four Blocked items and both review items are decided and applied (DECISIONS.md, last eight entries): weekly/bi-weekly periods only; mixed-rate overtime at the weighted-average rate; `paidWhenNotTaken` deleted; average-day formula unchanged; period ends at `workDayStart` the day after its last date, with approval gated on it; holiday multiplier is the total rate plus `holidayPremiumRequiresEligibility` (CA-BC on); wages per work-day. Nothing is blocked any more except the `WEEK_UNDEFINED` guard for legacy semi-monthly/monthly data and `NO_WAGE` / `AVERAGE_DAY_NOT_CONFIGURED`. Expected values updated in `tests/unit/pay-rules.test.ts`.
+
+**Next:** Phase 9 — not started (waiting for the owner).

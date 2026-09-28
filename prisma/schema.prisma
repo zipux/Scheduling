@@ -696,13 +696,12 @@ model BreakEntry {
 }
 
 model BreakRule {
-  id               String   @id @default(cuid())
-  businessId       String
-  business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  afterHours       Decimal  @db.Decimal(5, 2)
-  breakMinutes     Int
-  paidWhenNotTaken Boolean  @default(false)
-  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  afterHours   Decimal  @db.Decimal(5, 2)
+  breakMinutes Int
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([businessId])
 }
@@ -767,7 +766,9 @@ model PayRules {
   /// fixed number ("fixed"). null = not configured → holiday pay is not calculated.
   holidayAverageDivisor        String?
   holidayAverageFixedDivisor   Int?
-  updatedAt                    DateTime  @updatedAt @db.Timestamptz(3)
+  /// When true, working a holiday earns the premium only if the eligibility test passes.
+  holidayPremiumRequiresEligibility Boolean @default(false)
+  updatedAt                   DateTime  @updatedAt @db.Timestamptz(3)
 }
 
 enum PayPeriodStatus {

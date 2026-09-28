@@ -67,6 +67,7 @@ export default async function PayRulesPage({ params }: PageProps<"/b/[businessId
             holidayLookbackDays: String(rules.holidayLookbackDays),
             holidayAverageDivisor: (rules.holidayAverageDivisor as "days_worked" | "fixed" | null) ?? "",
             holidayAverageFixedDivisor: str(rules.holidayAverageFixedDivisor),
+            holidayPremiumRequiresEligibility: rules.holidayPremiumRequiresEligibility,
           }}
           holidaysLink={
             <Link href={`/b/${businessId}/settings/holidays`} className="underline">

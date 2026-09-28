@@ -63,14 +63,15 @@ describe("pay rules & holidays (§7.6.8, §7.6.4)", () => {
     await expect(saveWorkDayStart(await ctxFor(mgr), { workDayStartMinutes: 300 })).rejects.toThrow(ForbiddenError);
     await saveWorkDayStart(await ctxFor(A.owner.id), { workDayStartMinutes: 300 });
     expect((await db.business.findUniqueOrThrow({ where: { id: A.business.id } })).workDayStartMinutes).toBe(300);
-    await addBreakRule(await ctxFor(A.owner.id), { afterHours: 10, breakMinutes: 15, paidWhenNotTaken: false });
+    await addBreakRule(await ctxFor(A.owner.id), { afterHours: 10, breakMinutes: 15 });
     expect(await db.breakRule.count({ where: { businessId: A.business.id } })).toBeGreaterThanOrEqual(2);
   });
 
   it("the holiday formula is configurable and a fixed divisor is saved", async () => {
-    await saveHolidayRules(await ctxFor(A.owner.id), { holidayMinEmploymentDays: 0, holidayMinDaysWorkedLookback: 0, holidayLookbackDays: 28, holidayAverageDivisor: "fixed", holidayAverageFixedDivisor: 20 });
+    await saveHolidayRules(await ctxFor(A.owner.id), { holidayMinEmploymentDays: 0, holidayMinDaysWorkedLookback: 0, holidayLookbackDays: 28, holidayAverageDivisor: "fixed", holidayAverageFixedDivisor: 20, holidayPremiumRequiresEligibility: true });
     const r = await db.payRules.findUniqueOrThrow({ where: { businessId: A.business.id } });
     expect(r.holidayAverageFixedDivisor).toBe(20);
+    expect(r.holidayPremiumRequiresEligibility).toBe(true);
   });
 
   it("new businesses get their province's holidays; presets for another year can be added; holidays.manage required", async () => {

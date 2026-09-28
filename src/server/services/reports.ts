@@ -5,8 +5,8 @@ import { can } from "@/lib/permissions";
 import { audit } from "@/server/audit";
 import { addDaysKey } from "@/lib/time";
 import { workedSeconds } from "@/lib/pay/hours";
-import { workDayOf, periodContaining, type Frequency, type Period } from "@/lib/pay/periods";
-import { wageForPeriod } from "@/lib/wages";
+import { workDayOf, type Period } from "@/lib/pay/periods";
+import { wageOn } from "@/lib/wages";
 import { csvCell, periodOverview } from "./timesheets";
 
 /** A report is a plain table so the page and the CSV export share one source. */
@@ -70,9 +70,9 @@ export async function buildReport(ctx: BusinessContext, key: ReportKey, period: 
       if (secs === null || !e.clockIn) continue;
       const day = workDayOf(e.clockIn, e.location.timezone, b.workDayStartMinutes);
       if (!inP(day)) continue;
-      const w = wageForPeriod(
+      const w = wageOn(
         wages.filter((x) => x.membershipId === e.membershipId).map((x) => ({ rateCents: x.rateCents, type: x.type, positionId: x.positionId, effectiveFrom: x.effectiveFrom.toISOString().slice(0, 10) })),
-        periodContaining(b.payPeriodFrequency as Frequency, b.payPeriodAnchorDate?.toISOString().slice(0, 10) ?? null, day).start,
+        day,
         e.positionId,
       );
       const k = `${day}|${e.location.name}|${e.positionId ?? ""}`;

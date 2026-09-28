@@ -1,5 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
-import { addDaysKey } from "../time";
+import { addDaysKey, localToUtc } from "../time";
 
 /**
  * Pay periods and work-days (§7.6.1).
@@ -9,7 +9,8 @@ import { addDaysKey } from "../time";
  * 2. `workDayStart` (default 04:00 local) is the work-day boundary, so a
  *    21:00–02:10 close counts entirely as the day it started.
  * 3. The same rule decides the pay period: the entry belongs to the period
- *    containing its work-day. Periods are whole work-days.
+ *    containing its work-day. Periods are whole work-days, so a period ends at
+ *    workDayStart on the day after its last date (`periodEndsAt`).
  */
 
 export type Frequency = "weekly" | "biweekly" | "semimonthly" | "monthly";
@@ -55,6 +56,22 @@ export function periodContaining(frequency: Frequency, anchor: string | null, da
   return d <= 15 ? { start: `${y}-${mm}-01`, end: `${y}-${mm}-15` } : { start: `${y}-${mm}-16`, end: `${y}-${mm}-${String(last).padStart(2, "0")}` };
 }
 
+/**
+ * The instant a period ends: `workDayStart` on the day AFTER its last date, not
+ * midnight — until then a clock-in (e.g. 01:00 Monday) can still join its last
+ * work-day. With several location timezones the period ends at the latest of them.
+ */
+export function periodEndsAt(p: Period, timezones: string[], workDayStartMinutes: number): Date {
+  const hhmm = `${String(Math.floor(workDayStartMinutes / 60)).padStart(2, "0")}:${String(workDayStartMinutes % 60).padStart(2, "0")}`;
+  const next = addDaysKey(p.end, 1);
+  return new Date(Math.max(...timezones.map((tz) => localToUtc(next, hhmm, tz).getTime())));
+}
+
+/** A period can be approved only once it has ended, so no later clock-in can land in it. */
+export function periodHasEnded(p: Period, now: Date, timezones: string[], workDayStartMinutes: number): boolean {
+  return now.getTime() >= periodEndsAt(p, timezones, workDayStartMinutes).getTime();
+}
+
 export function periodDays(p: Period): string[] {
   const n = daysBetween(p.start, p.end) + 1;
   return Array.from({ length: n }, (_, i) => addDaysKey(p.start, i));
@@ -68,7 +85,8 @@ export function inPeriod(p: Period, day: string) {
  * Overtime weeks inside a period. For weekly and bi-weekly periods these are the
  * 7-day blocks the period is made of. For semi-monthly and monthly periods the
  * spec does not say which week weekly overtime uses (weeks straddle periods), so
- * this returns null and the calculator refuses to guess (see PROGRESS.md "Blocked").
+ * this returns null and the calculator refuses to guess (WEEK_UNDEFINED). Those
+ * frequencies are no longer offered; this stays as a guard for existing data.
  */
 export function overtimeWeeks(frequency: Frequency, p: Period): Period[] | null {
   if (frequency !== "weekly" && frequency !== "biweekly") return null;

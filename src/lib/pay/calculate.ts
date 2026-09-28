@@ -1,9 +1,9 @@
-import { wageForPeriod, type WageRow } from "../wages";
+import { wageOn, type WageRow } from "../wages";
 import { isBlocking, type TimeFlag } from "../time-flags";
-import { overtimeWeeks, periodContaining, periodsPerYear, workDayOf, inPeriod, type Frequency, type Period } from "./periods";
+import { overtimeWeeks, periodsPerYear, workDayOf, inPeriod, type Frequency, type Period } from "./periods";
 import { workedSeconds, unpaidBreakSeconds, type EntryTimes } from "./hours";
 import { breakViolations, type BreakRuleInput } from "./breaks";
-import { allocateWeek, payCents, type OvertimeRules, type WorkItem } from "./overtime";
+import { allocateWeek, payCents, type Allocation, type OvertimeRules, type WorkItem } from "./overtime";
 import { holidayVerdict, type AverageDayConfig, type EligibilityRule, type HolidayVerdict } from "./holidays";
 
 /**
@@ -39,6 +39,8 @@ export interface TimesheetInput {
   vacationPayPercent: number;
   breakRules: BreakRuleInput[];
   holidayRule: EligibilityRule;
+  /** When true, working a holiday earns the premium only if the eligibility test passes. */
+  holidayPremiumRequiresEligibility?: boolean;
   average: AverageDayConfig;
   wages: WageRow[];
   hireDate: string | null;
@@ -47,7 +49,7 @@ export interface TimesheetInput {
   holidays: HolidayDef[];
 }
 
-export type BlockedCode = "NO_WAGE" | "WEEK_UNDEFINED" | "MIXED_RATE_OVERTIME" | "AVERAGE_DAY_NOT_CONFIGURED";
+export type BlockedCode = "NO_WAGE" | "WEEK_UNDEFINED" | "AVERAGE_DAY_NOT_CONFIGURED";
 
 export interface PayLine {
   kind: "regular" | "overtime" | "min_daily_topup" | "holiday_premium" | "holiday_pay" | "salary";
@@ -79,6 +81,14 @@ export interface TimesheetResult {
 
 const H = 3600;
 
+const sum = (list: Allocation[], k: "daily1" | "daily2" | "weekly") => list.reduce((n, a) => n + a[k], 0);
+
+/** Weighted-average straight-time rate in cents/hour (unrounded; the pay line rounds once). */
+function weightedRate(parts: { seconds: number; rateCents: number }[]): number {
+  const secs = parts.reduce((n, p) => n + p.seconds, 0);
+  return secs ? parts.reduce((n, p) => n + p.seconds * p.rateCents, 0) / secs : 0;
+}
+
 export function entryWorkDay(e: PayEntry, workDayStartMinutes: number): string | null {
   const anchor = e.clockIn ?? e.clockOut;
   return anchor ? workDayOf(anchor, e.tz, workDayStartMinutes) : null;
@@ -89,9 +99,10 @@ export function calculateTimesheet(input: TimesheetInput): TimesheetResult {
   const withDay = input.entries.map((e) => ({ e, day: entryWorkDay(e, input.workDayStartMinutes) }));
   const mine = withDay.filter((x) => x.day && inPeriod(input.period, x.day));
 
-  // Rate: the wage in force on the period's FIRST day (§8: a mid-period raise waits).
-  const rateFor = (period: Period, positionId: string | null) => wageForPeriod(input.wages, period.start, positionId);
-  const general = rateFor(input.period, null);
+  // Rate: the wage in force on the work-day the hours were worked, so a raise applies
+  // from its effective date. Salaried status is judged on the period's first day.
+  const rateFor = (day: string, positionId: string | null) => wageOn(input.wages, day, positionId);
+  const general = rateFor(input.period.start, null);
   const salaried = general?.type === "salary";
 
   const unresolvedFlags = mine.flatMap(({ e }) =>
@@ -117,9 +128,9 @@ export function calculateTimesheet(input: TimesheetInput): TimesheetResult {
       violations.push({ entryId: e.id, afterHours: v.rule.afterHours, breakMinutes: v.rule.breakMinutes, longestStretchSeconds: v.longestStretchSeconds });
     }
     if (salaried) continue;
-    const wage = rateFor(input.period, e.positionId);
+    const wage = rateFor(day!, e.positionId);
     if (!wage || wage.type !== "hourly") {
-      if (!blocked.some((b) => b.code === "NO_WAGE")) blocked.push({ code: "NO_WAGE", detail: "No hourly wage is in force at the start of this period." });
+      if (!blocked.some((b) => b.code === "NO_WAGE")) blocked.push({ code: "NO_WAGE", detail: `No hourly wage is in force on ${day}.` });
       continue;
     }
     items.push({ entryId: e.id, workDay: day!, start: (e.clockInRounded ?? e.clockIn)!, seconds: secs, rateCents: wage.rateCents });
@@ -161,10 +172,6 @@ export function calculateTimesheet(input: TimesheetInput): TimesheetResult {
       const weekItems = items.filter((i) => i.workDay >= w.start && i.workDay <= w.end);
       if (!weekItems.length) continue;
       const r = allocateWeek(weekItems, rules);
-      const rates = new Set(weekItems.map((i) => i.rateCents));
-      if (r.buckets.length && rates.size > 1) {
-        blocked.push({ code: "MIXED_RATE_OVERTIME", detail: `Week of ${w.start} has overtime and more than one hourly rate; the spec doesn't say which rate overtime is paid at.` });
-      }
       regularSeconds += r.regularSeconds;
       for (const b of r.buckets) {
         const existing = overtime.find((o) => o.tier === b.tier && o.multiplier === b.multiplier);
@@ -174,11 +181,20 @@ export function calculateTimesheet(input: TimesheetInput): TimesheetResult {
       const m1 = r.buckets.find((b) => b.tier === "daily1")?.multiplier ?? 1;
       const m2 = r.buckets.find((b) => b.tier === "daily2")?.multiplier ?? 1;
       const mw = r.buckets.find((b) => b.tier === "weekly")?.multiplier ?? 1;
-      for (const a of r.items) {
-        add("regular", a.regular, a.rateCents, 1, "Regular");
-        add("overtime", a.daily1, a.rateCents, m1, `Daily overtime ×${m1}`);
-        add("overtime", a.daily2, a.rateCents, m2, `Daily overtime ×${m2}`);
-        add("overtime", a.weekly, a.rateCents, mw, `Weekly overtime ×${mw}`);
+      // Straight time is paid at each hour's own rate. Overtime is paid at the weighted-average
+      // straight-time rate of the hours it was measured against: daily overtime at that
+      // work-day's average (all its hours), weekly overtime at the average of the week's
+      // non-consumed hours (the ones the weekly threshold counted). One rate → that rate.
+      for (const a of r.items) add("regular", a.regular, a.rateCents, 1, "Regular");
+      for (const day of new Set(r.items.map((a) => a.workDay))) {
+        const list = r.items.filter((a) => a.workDay === day);
+        const avg = weightedRate(list.map((a) => ({ seconds: a.seconds, rateCents: a.rateCents })));
+        add("overtime", sum(list, "daily1"), avg, m1, `Daily overtime ×${m1}`);
+        add("overtime", sum(list, "daily2"), avg, m2, `Daily overtime ×${m2}`);
+      }
+      if (sum(r.items, "weekly")) {
+        const avg = weightedRate(r.items.map((a) => ({ seconds: a.regular + a.weekly, rateCents: a.rateCents })));
+        add("overtime", sum(r.items, "weekly"), avg, mw, `Weekly overtime ×${mw}`);
       }
     }
     // Round once per line (seconds × rate × multiplier).
@@ -213,7 +229,7 @@ export function calculateTimesheet(input: TimesheetInput): TimesheetResult {
       if (!day) continue;
       const secs = workedSeconds(e);
       if (secs === null) continue;
-      const wage = rateFor(periodContaining(input.frequency, input.anchor, day), e.positionId);
+      const wage = rateFor(day, e.positionId);
       if (!wage || wage.type !== "hourly") continue;
       straightByDay.set(day, (straightByDay.get(day) ?? 0) + payCents(secs, wage.rateCents, 1));
     }
@@ -225,11 +241,13 @@ export function calculateTimesheet(input: TimesheetInput): TimesheetResult {
         workedOnHoliday: items.filter((i) => i.workDay === h.date).map((i) => ({ seconds: i.seconds, rateCents: i.rateCents })),
         lookbackDays: [...straightByDay.entries()].map(([day, straightTimeCents]) => ({ day, straightTimeCents })),
         rule,
+        premiumRequiresEligibility: !!input.holidayPremiumRequiresEligibility,
         average: input.average,
         override: h.override ?? null,
       });
       holidays.push(v);
-      if (v.premiumCents) lines.push({ kind: "holiday_premium", seconds: v.premiumSeconds, rateCents: 0, multiplier: h.premiumMultiplier, cents: v.premiumCents, label: `${h.name} premium` });
+      // The premium line is only the addition on top of the regular line: (multiplier − 1).
+      if (v.premiumCents) lines.push({ kind: "holiday_premium", seconds: v.premiumSeconds, rateCents: 0, multiplier: h.premiumMultiplier - 1, cents: v.premiumCents, label: `${h.name} premium` });
       if (v.holidayPayCents) lines.push({ kind: "holiday_pay", seconds: 0, rateCents: 0, multiplier: 1, cents: v.holidayPayCents, label: `${h.name} holiday pay` });
       if (v.blocked && !blocked.some((b) => b.code === "AVERAGE_DAY_NOT_CONFIGURED")) {
         blocked.push({ code: "AVERAGE_DAY_NOT_CONFIGURED", detail: "Set how an average day's pay is calculated on the Pay rules screen." });
