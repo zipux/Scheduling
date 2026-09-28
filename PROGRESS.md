@@ -186,3 +186,7 @@ Append-only log, newest phase at the bottom.
 - Web push is not implemented (the spec says "later — leave the interface ready"; notifications are rows + an email flush, so a push sender can be added to the flush).
 
 **Next:** Phase 9 — Polish (PWA + offline shell, accessibility pass, empty/loading/error states, data export payload, full e2e run, README).
+
+## Run stopped after Phase 8 (2026-09-28)
+
+Stopped on the owner's instruction after Phase 8. Phase 9 (PWA and offline shell, accessibility pass, empty/loading/error states, the §10.1 data-export payload, the final full e2e run and the full README) has not been started. The README is still the short quick-start version.
