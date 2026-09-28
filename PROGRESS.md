@@ -26,3 +26,24 @@ Append-only log, newest phase at the bottom.
 - `next dev` logs "The destination stream closed early" when Playwright navigates away mid-stream; harmless.
 
 **Next:** Phase 2 — Onboarding (platform admin, create business, invitations with bounce handling, profile completion, PIN setup, roles & permissions UI).
+
+## Phase 2 — Onboarding — ✅ complete (2026-09-28)
+
+**What works**
+- Platform admin (`/admin`): list businesses, create business + invite owner (country/province/timezone/currency; roles and pay-rule presets seeded), suspend/reactivate, subscription status, resend owner invite.
+- Invitations: random token stored SHA-256 hashed, single-use (conditional update), 7-day expiry, resend (new token, old link dies), revoke, rate-limited. Rank rules on who can invite to which role; wage only with `wages.edit`.
+- Delivery tracking: `/api/webhooks/resend` (Svix-verified) writes delivered/bounced/complained onto EmailLog + Invitation; "Delivery failed" state with one-click *Edit address & resend*; dashboard warning while any invitation is bounced or unaccepted > 72 h. Dev emails page can simulate each event.
+- Accept flow `/invite/[token]`: new account with own password or magic link; existing account signs in then accepts (adds the business); wrong-account and expired/revoked/used states.
+- Profile completion gate (phone with country code, DOB, address, emergency contact, 4–6 digit PIN twice) — PIN stored as per-membership HMAC-SHA256.
+- PIN: change from Account (password or fresh magic-link session), manager reset → employee sets a new one.
+- Owner setup wizard: first location + geofence (lat/lng, use my position, radius, mode), pay period, pay rules pre-filled from province preset with mandatory responsibility confirmation, roles review.
+- People: members list, member detail (private fields only with `employees.edit`), change role, reset PIN, deactivate (access revoked now; separate payroll end date) / reactivate.
+- Settings → Roles & permissions: create/edit/delete custom roles, rank, permission toggles, Owner role locked.
+
+**Tests**: unit 63, integration 45 (invitations incl. single-use/expiry/revoke/bounce/resend, role & rank rules allowed+denied, deactivation/sessions, PIN HMAC/change/reset), e2e 27 on mobile 375 px + desktop (admin → owner → wizard; invite → bounce → fix → magic-link accept → profile; existing user accepts second business; roles UI; employee 404s; PIN change).
+
+**Known issues / notes**
+- Profile photo not implemented yet (optional; planned with file storage in Phase 8).
+- Map pin for geofence comes in Phase 3.
+
+**Next:** Phase 3 — Locations, positions & wages (settings screens, geofence picker + test tool, wage history).

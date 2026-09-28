@@ -23,6 +23,7 @@ export default async function MorePage({ params }: PageProps<"/b/[businessId]/mo
   if (hasPermission(ctx, "reports.view")) links.push({ href: `${base}/reports`, label: t("reports") });
   if (hasPermission(ctx, "business.settings") || hasPermission(ctx, "roles.manage") || hasPermission(ctx, "payrules.manage"))
     links.push({ href: `${base}/settings`, label: t("settings") });
+  links.push({ href: `${base}/account`, label: t("account") });
   if (memberships.length > 1) links.push({ href: "/", label: t("switchBusiness") });
 
   return (

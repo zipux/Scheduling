@@ -18,6 +18,8 @@ export default defineConfig({
           name: "unit",
           include: ["tests/unit/**/*.test.ts", "src/**/*.test.ts"],
           environment: "node",
+          // Unit tests never touch a database; modules that build a client at import get a dummy URL.
+          env: { DATABASE_URL: "postgresql://unit-tests@127.0.0.1:1/none" },
         },
       },
       {

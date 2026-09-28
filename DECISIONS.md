@@ -30,3 +30,18 @@ One line each: date — decision — reason. Append only.
 - 2026-09-28 — Missing `BETTER_AUTH_SECRET` / `PIN_HMAC_SECRET` fall back to fixed insecure placeholders in development and throw in production — the provided `.env` only has database URLs; dev must still run.
 - 2026-09-28 — Integration + e2e tests run against `TEST_DATABASE_URL`; e2e global setup re-seeds it (TRUNCATE); integration tests create uniquely-named businesses and never truncate — safe to run repeatedly against a shared remote DB.
 - 2026-09-28 — Prisma interactive transactions: maxWait 15 s / timeout 30 s — remote Neon connections can take several seconds to start a transaction after idling.
+- 2026-09-28 — Invitation acceptance lives in the platform layer (`src/server/platform/accept-invitation.ts`) using the raw client constrained to the invitation's businessId — the visitor has no membership yet, so no tenant context exists.
+- 2026-09-28 — "Continue with magic link" on an invitation creates the account (no password) and accepts, then emails a sign-in link — Better Auth has no public API to mint a session server-side; this keeps sign-in on the normal, audited path.
+- 2026-09-28 — An existing user accepting an invitation must sign in first (sign-in supports a same-origin `?next=`) — the invitation link alone doesn't authenticate an existing account.
+- 2026-09-28 — Only an Owner may invite/assign the Owner role; everyone else only roles strictly junior to their own — §3.3 rank rule applied to invitations and role changes.
+- 2026-09-28 — A non-owner holding `roles.manage` may only manage roles junior to their own and only grant/revoke permissions they hold themselves — prevents privilege escalation through role editing.
+- 2026-09-28 — The "unaccepted after 72 h" warning measures from `Invitation.sentAt`, which resets on resend — a freshly resent invitation shouldn't warn immediately.
+- 2026-09-28 — A late `delivered` webhook never overrides a recorded `bounced`/`complained` for the same email — an invitation must never sit on "Invited" when the email never arrived.
+- 2026-09-28 — Resend webhook verified with a Web-Crypto Svix implementation; endpoint returns 503 when `RESEND_WEBHOOK_SECRET` is unset. Dev emails page has "Simulate delivered/bounced/complained" buttons so the bounce flow is testable without Resend.
+- 2026-09-28 — PIN change re-auth: current password, or a session created < 10 minutes ago (i.e. just signed in via magic link) — §7.1 "password or magic-link re-auth".
+- 2026-09-28 — Manager "Reset PIN" clears the PIN; the employee is gated to a Set PIN screen on next visit — the manager never chooses or sees a PIN.
+- 2026-09-28 — Deactivation deletes the user's sessions only if they have no other active membership — sessions are per user; access to this business is already cut by `accessRevokedAt`, and a job elsewhere must keep working.
+- 2026-09-28 — Optional profile photo deferred to Phase 8, where the file-storage interface (local dev / S3 prod) is built for message attachments — avoids building storage twice.
+- 2026-09-28 — Setup wizard collects all four steps client-side and saves once at the end; map-pin picking is deferred to Phase 3 (lat/lng inputs + "Use my current position" for now) — Phase 3 owns the geofence picker.
+- 2026-09-28 — Onboarding gates in the app layout: profile incomplete → profile; PIN cleared → set PIN; Owner with setup incomplete → wizard. Non-owners are not blocked by an unfinished setup.
+- 2026-09-28 — Native `<select>` used for form dropdowns (NativeSelect) instead of the shadcn popover Select — OS pickers on phones, better accessibility, reliable to test.

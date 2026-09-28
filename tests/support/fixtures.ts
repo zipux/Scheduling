@@ -63,3 +63,37 @@ export async function makeBusiness(name = "Biz") {
   await db.auditLog.create({ data: { businessId: business.id, action: "TEST" } });
   return { business, roles, location, position, owner, ownerUser, employee, employeeUser, shift, timeEntry };
 }
+
+import type { BusinessContext } from "@/server/auth/context";
+import { tenantDb } from "@/server/db/tenant";
+import { parsePermissions } from "@/lib/permissions";
+
+/** Builds the same BusinessContext the app builds from a session, for service-level tests. */
+export async function ctxFor(membershipId: string): Promise<BusinessContext> {
+  const m = await db.membership.findUniqueOrThrow({
+    where: { id: membershipId },
+    include: { business: true, role: true, profile: { select: { completedAt: true, pinHmac: true } }, user: true },
+  });
+  return {
+    userId: m.userId,
+    userName: m.user.name,
+    businessId: m.businessId,
+    business: m.business,
+    membership: m,
+    actor: {
+      userId: m.userId,
+      membershipId: m.id,
+      isOwner: m.role.isOwner,
+      rank: m.role.rank,
+      permissions: new Set(parsePermissions(m.role.permissions)),
+    },
+    db: tenantDb(m.businessId),
+  };
+}
+
+export async function addMember(businessId: string, roleId: string, name = "Member") {
+  const user = await makeUser(name);
+  const m = await db.membership.create({ data: { businessId, userId: user.id, roleId } });
+  await db.employeeProfile.create({ data: { businessId, membershipId: m.id } });
+  return { user, membership: m };
+}

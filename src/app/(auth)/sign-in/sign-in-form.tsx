@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export function SignInForm() {
+export function SignInForm({ next, defaultEmail }: { next: string; defaultEmail: string }) {
   const t = useTranslations("auth");
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState<"password" | "link" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export function SignInForm() {
       setError(res.error.status === 429 ? t("rateLimited") : t("invalidCredentials"));
       return;
     }
-    router.replace("/");
+    router.replace(next);
     router.refresh();
   }
 
@@ -38,7 +38,7 @@ export function SignInForm() {
     setInfo(null);
     if (!email) return;
     setPending("link");
-    const res = await authClient.signIn.magicLink({ email, callbackURL: "/" });
+    const res = await authClient.signIn.magicLink({ email, callbackURL: next });
     setPending(null);
     if (res.error?.status === 429) {
       setError(t("rateLimited"));

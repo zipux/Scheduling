@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { activeMemberships, hasPermission, requireBusinessPage } from "@/server/auth/context";
 import { BottomTabBar, SideNav, type NavKey } from "@/components/app/nav";
@@ -7,6 +8,10 @@ import { BusinessSwitcher } from "@/components/app/business-switcher";
 export default async function BusinessLayout({ children, params }: LayoutProps<"/b/[businessId]">) {
   const { businessId } = await params;
   const ctx = await requireBusinessPage(businessId);
+  // Onboarding gates (§4): profile + PIN first, then the owner's setup wizard.
+  if (!ctx.membership.profile?.completedAt) redirect(`/b/${businessId}/onboarding/profile`);
+  if (!ctx.membership.profile.pinHmac) redirect(`/b/${businessId}/onboarding/pin`);
+  if (!ctx.business.setupCompletedAt && ctx.actor.isOwner) redirect(`/b/${businessId}/onboarding/setup`);
   const t = await getTranslations("nav");
   const memberships = await activeMemberships(ctx.userId);
   const base = `/b/${businessId}`;

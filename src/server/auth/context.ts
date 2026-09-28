@@ -53,7 +53,7 @@ export interface BusinessContext {
 function loadMembership(userId: string, businessId: string) {
   return rawDb.membership.findFirst({
     where: { userId, businessId, status: "active", accessRevokedAt: null, business: { suspendedAt: null } },
-    include: { business: true, role: true, profile: { select: { completedAt: true } } },
+    include: { business: true, role: true, profile: { select: { completedAt: true, pinHmac: true } } },
   });
 }
 

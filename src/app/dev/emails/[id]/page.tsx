@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { rawDb } from "@/server/db/client";
+import { simulateDelivery } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,18 @@ export default async function DevEmailPage({ params }: PageProps<"/dev/emails/[i
         ← All emails
       </Link>
       <h1 className="mt-2 text-xl font-semibold">{email.subject}</h1>
-      <p className="text-sm text-muted-foreground">To: {email.to}</p>
+      <p className="text-sm text-muted-foreground">
+        To: {email.to} · Status: <span data-testid="dev-email-status">{email.status}</span>
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(["delivered", "bounced", "complained"] as const).map((s) => (
+          <form key={s} action={simulateDelivery.bind(null, email.id, s)}>
+            <button type="submit" className="min-h-11 rounded-md border px-3 text-sm hover:bg-muted">
+              Simulate {s}
+            </button>
+          </form>
+        ))}
+      </div>
       <iframe
         title={email.subject}
         sandbox=""

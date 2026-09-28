@@ -394,6 +394,8 @@ model Invitation {
   status         InvitationStatus @default(pending)
   deliveryStatus DeliveryStatus   @default(queued)
   lastEmailLogId String?
+  /// When the current token was last emailed (resend resets it).
+  sentAt         DateTime         @default(now()) @db.Timestamptz(3)
   invitedById    String?
   acceptedAt     DateTime?        @db.Timestamptz(3)
   createdAt      DateTime         @default(now()) @db.Timestamptz(3)
