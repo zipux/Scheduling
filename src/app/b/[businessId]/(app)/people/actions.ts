@@ -5,6 +5,8 @@ import { businessAction } from "@/server/action";
 import { inviteMember, inviteSchema, resendInvitation, revokeInvitation } from "@/server/services/invitations";
 import { changeMemberRole, deactivateMember, deactivateSchema, reactivateMember } from "@/server/services/members";
 import { resetPin } from "@/server/services/profile";
+import { assignmentsSchema, setMemberAssignments } from "@/server/services/members";
+import { addWage, wageSchema } from "@/server/services/wages";
 
 export const inviteAction = businessAction(inviteSchema, inviteMember);
 
@@ -31,3 +33,9 @@ export const reactivateAction = businessAction(z.object({ membershipId: z.string
 export const resetPinAction = businessAction(z.object({ membershipId: z.string().min(1) }), (ctx, i) =>
   resetPin(ctx, i.membershipId),
 );
+
+
+export const setAssignmentsAction = businessAction(assignmentsSchema, setMemberAssignments);
+export const addWageAction = businessAction(wageSchema, async (ctx, i) => {
+  await addWage(ctx, i);
+});

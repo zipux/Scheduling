@@ -4,6 +4,8 @@ import { activeMemberships, requireBusinessPage } from "@/server/auth/context";
 import { userHasPassword } from "@/server/auth/reauth";
 import { PageHeader } from "@/components/app/page-header";
 import { ChangePinForm } from "./change-pin-form";
+import { WageHistory } from "@/components/app/wage-history";
+import { listWages } from "@/server/services/wages";
 
 export async function generateMetadata() {
   const t = await getTranslations("nav");
@@ -22,6 +24,14 @@ export default async function AccountPage({ params }: PageProps<"/b/[businessId]
         <h2 className="font-medium">{t("changePin")}</h2>
         <p className="text-sm text-muted-foreground">{t("changePinHint", { business: ctx.business.name })}</p>
         <ChangePinForm businessId={businessId} hasPassword={await userHasPassword(ctx.userId)} />
+      </section>
+      <section className="mb-8 max-w-md space-y-2">
+        <h2 className="font-medium">{t("myPay")}</h2>
+        <WageHistory
+          wages={await listWages(ctx, ctx.membership.id)}
+          currency={ctx.business.currency}
+          positions={new Map((await ctx.db.position.findMany()).map((p) => [p.id, p.name]))}
+        />
       </section>
       <section className="max-w-md space-y-2">
         <h2 className="font-medium">{t("myBusinesses")}</h2>

@@ -47,3 +47,20 @@ Append-only log, newest phase at the bottom.
 - Map pin for geofence comes in Phase 3.
 
 **Next:** Phase 3 — Locations, positions & wages (settings screens, geofence picker + test tool, wage history).
+
+## Phase 3 — Locations, positions & wages — ✅ complete (2026-09-28)
+
+**What works**
+- Settings → Business: business info (name, timezone, currency, minor age threshold, payroll burden % + note, directory visibility), request rules (self-approval, escalation, notice, approval per request type), time clock rules (modes, early clock-in, unscheduled, rounding with legal-risk warning, tolerance, max shift hours, clock skew, work-day start).
+- Settings → Locations: list/create/edit/archive (never the last one), timezone, temporary flag, geofence mode/centre/radius with Leaflet map picker, "Use my current position", and the 10-reading **Test geofence** tool with a recommended radius.
+- Settings → Positions: create/edit/archive, colour, minimum age.
+- People → person: edit locations & positions; wage history (self, or `wages.view`); add wage (hourly per position or general, or salary) with effective date, guarded against approved pay periods; Account → My pay.
+- Pure libs: haversine distance + geofence recommendation (`src/lib/geo.ts`), wage resolution (`src/lib/wages.ts`).
+
+**Tests**: unit 82, integration 63, e2e 37 (+1 skipped by design) on mobile + desktop.
+
+**Known issues / notes**
+- Map tiles come from OpenStreetMap at runtime (optional; everything works without them).
+- Location switcher (§5.2) is built with the schedule in Phase 4.
+
+**Next:** Phase 4 — Scheduling (shifts, open shifts, draft/publish, templates, copy week, persistent warnings, Scheduled wages, .ics feed).

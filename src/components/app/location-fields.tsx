@@ -9,21 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { NativeSelect } from "@/components/app/native-select";
 import { FieldError } from "@/components/app/field-error";
+import { MapPicker } from "@/components/app/map-picker";
+import { GeofenceTest } from "@/components/app/geofence-test";
+import type { LocationValues } from "@/lib/location-values";
 
-export interface LocationValues {
-  name: string;
-  address: string;
-  timezone: string;
-  lat: string;
-  lng: string;
-  radiusM: string;
-  geofenceMode: "required" | "warn" | "off";
-  isTemporary: boolean;
-}
+export type { LocationValues };
 
-export function emptyLocation(timezone: string): LocationValues {
-  return { name: "", address: "", timezone, lat: "", lng: "", radiusM: "100", geofenceMode: "warn", isTemporary: false };
-}
 
 export function LocationFields({
   value,
@@ -104,6 +95,13 @@ export function LocationFields({
               {locating ? t("locating") : t("useMyPosition")}
             </Button>
             {geoError && <p className="text-sm text-destructive" role="alert">{geoError}</p>}
+            <MapPicker
+              lat={value.lat === "" ? null : Number(value.lat)}
+              lng={value.lng === "" ? null : Number(value.lng)}
+              radiusM={Number(value.radiusM) || 0}
+              onPick={(lat, lng) => onChange({ ...value, lat: String(lat), lng: String(lng) })}
+              label={t("mapLabel")}
+            />
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="loc-lat">{t("lat")}</Label>
@@ -120,6 +118,10 @@ export function LocationFields({
               <Input id="loc-radius" inputMode="numeric" value={value.radiusM} onChange={(e) => set("radiusM", e.target.value)} />
               <FieldError errors={err("radiusM")} />
             </div>
+            <GeofenceTest
+              center={value.lat !== "" && value.lng !== "" ? { lat: Number(value.lat), lng: Number(value.lng) } : null}
+              onApply={(r) => onChange({ ...value, lat: String(r.lat), lng: String(r.lng), radiusM: String(r.radiusM) })}
+            />
             {extra}
           </>
         )}

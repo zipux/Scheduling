@@ -3,6 +3,7 @@ import { z } from "zod";
 import { isValidTimezone } from "@/lib/regions";
 import { assertCan, type BusinessContext } from "@/server/auth/context";
 import { audit } from "@/server/audit";
+import { UserError } from "@/server/action";
 
 const optionalNumber = (min: number, max: number) =>
   z.preprocess((v) => (v === "" || v === null || v === undefined ? null : Number(v)), z.number().min(min).max(max).nullable());
@@ -40,4 +41,46 @@ export async function createLocation(ctx: BusinessContext, input: LocationInput)
   });
   await audit({ businessId: ctx.businessId, actorUserId: ctx.userId, action: "LOCATION_CREATED", targetType: "Location", targetId: loc.id });
   return loc;
+}
+
+async function loadLocation(ctx: BusinessContext, id: string) {
+  assertCan(ctx, "business.settings");
+  const loc = await ctx.db.location.findUnique({ where: { id } });
+  if (!loc) throw new UserError("Location not found.");
+  return loc;
+}
+
+export async function updateLocation(ctx: BusinessContext, id: string, input: LocationInput) {
+  const before = await loadLocation(ctx, id);
+  const after = await ctx.db.location.update({
+    where: { id },
+    data: {
+      name: input.name,
+      address: input.address || null,
+      timezone: input.timezone,
+      lat: input.lat,
+      lng: input.lng,
+      radiusM: input.radiusM,
+      geofenceMode: input.geofenceMode,
+      isTemporary: input.isTemporary,
+    },
+  });
+  await audit({
+    businessId: ctx.businessId,
+    actorUserId: ctx.userId,
+    action: "LOCATION_UPDATED",
+    targetType: "Location",
+    targetId: id,
+    data: JSON.parse(JSON.stringify({ before, after })),
+  });
+}
+
+export async function setLocationArchived(ctx: BusinessContext, id: string, archived: boolean) {
+  const loc = await loadLocation(ctx, id);
+  if (archived) {
+    const active = await ctx.db.location.count({ where: { archivedAt: null } });
+    if (active <= 1 && !loc.archivedAt) throw new UserError("A business needs at least one active location.");
+  }
+  await ctx.db.location.update({ where: { id }, data: { archivedAt: archived ? new Date() : null } });
+  await audit({ businessId: ctx.businessId, actorUserId: ctx.userId, action: archived ? "LOCATION_ARCHIVED" : "LOCATION_RESTORED", targetType: "Location", targetId: id });
 }

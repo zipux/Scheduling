@@ -5,6 +5,11 @@ import { canManagePerson } from "@/lib/permissions";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { MemberAdmin } from "./member-admin";
+import { AssignmentsForm } from "./assignments-form";
+import { WageForm } from "./wage-form";
+import { WageHistory } from "@/components/app/wage-history";
+import { canViewWage } from "@/lib/permissions";
+import { listWages } from "@/server/services/wages";
 
 export default async function MemberPage({ params }: PageProps<"/b/[businessId]/people/[membershipId]">) {
   const { businessId, membershipId } = await params;
@@ -27,6 +32,14 @@ export default async function MemberPage({ params }: PageProps<"/b/[businessId]/
   const manageable = canManagePerson(ctx.actor, { membershipId: m.id, rank: m.role.rank }, "employees.edit");
   const roles = await ctx.db.role.findMany({ orderBy: { rank: "asc" } });
   const assignable = roles.filter((r) => ctx.actor.isOwner || (!r.isOwner && r.rank > ctx.actor.rank));
+  const [allLocations, allPositions] = await Promise.all([
+    ctx.db.location.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } }),
+    ctx.db.position.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } }),
+  ]);
+  const showWages = canViewWage(ctx.actor, m.id);
+  const wages = showWages ? await listWages(ctx, m.id) : [];
+  const canEditWage =
+    hasPermission(ctx, "wages.edit") && (m.id === ctx.membership.id ? ctx.actor.isOwner : canManagePerson(ctx.actor, { membershipId: m.id, rank: m.role.rank }, "wages.edit"));
 
   const row = (label: string, value: React.ReactNode) => (
     <div className="grid grid-cols-3 gap-2 px-4 py-3">
@@ -60,6 +73,26 @@ export default async function MemberPage({ params }: PageProps<"/b/[businessId]/
         {m.employmentEndedAt && row(t("employmentEnded"), m.employmentEndedAt.toISOString().slice(0, 10))}
         {row(t("pin"), m.profile?.pinHmac ? t("pinSet") : t("pinNotSet"))}
       </dl>
+      {manageable && (
+        <section className="mb-8 space-y-3">
+          <h2 className="font-medium">{t("assignments")}</h2>
+          <AssignmentsForm
+            businessId={businessId}
+            membershipId={m.id}
+            locations={allLocations.map((l) => ({ id: l.id, name: l.name }))}
+            positions={allPositions.map((p) => ({ id: p.id, name: p.name }))}
+            locationIds={m.locations.map((l) => l.locationId)}
+            positionIds={m.positions.map((p) => p.positionId)}
+          />
+        </section>
+      )}
+      {showWages && (
+        <section className="mb-8 space-y-3">
+          <h2 className="font-medium">{t("wages")}</h2>
+          <WageHistory wages={wages} currency={ctx.business.currency} positions={new Map(allPositions.map((p) => [p.id, p.name]))} />
+          {canEditWage && <WageForm businessId={businessId} membershipId={m.id} currency={ctx.business.currency} positions={allPositions.map((p) => ({ id: p.id, name: p.name }))} />}
+        </section>
+      )}
       {manageable && (
         <MemberAdmin
           businessId={businessId}

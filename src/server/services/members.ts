@@ -87,3 +87,38 @@ export async function reactivateMember(ctx: BusinessContext, membershipId: strin
   });
   await audit({ businessId: ctx.businessId, actorUserId: ctx.userId, action: "MEMBER_REACTIVATED", targetType: "Membership", targetId: target.id });
 }
+
+export const assignmentsSchema = z.object({
+  membershipId: z.string().min(1),
+  locationIds: z.array(z.string()),
+  positionIds: z.array(z.string()),
+});
+
+/** Replace a member's locations and positions (§5.2, §5). */
+export async function setMemberAssignments(ctx: BusinessContext, input: z.infer<typeof assignmentsSchema>) {
+  assertCan(ctx, "employees.edit");
+  const target = await loadTarget(ctx, input.membershipId);
+  if (!canManagePerson(ctx.actor, { membershipId: target.id, rank: target.role.rank }, "employees.edit")) {
+    throw new UserError("You can only edit people junior to you.");
+  }
+  await ctx.db.$transaction(async (tx) => {
+    await tx.membershipLocation.deleteMany({ where: { membershipId: target.id, locationId: { notIn: input.locationIds } } });
+    await tx.membershipPosition.deleteMany({ where: { membershipId: target.id, positionId: { notIn: input.positionIds } } });
+    const [haveL, haveP] = await Promise.all([
+      tx.membershipLocation.findMany({ where: { membershipId: target.id }, select: { locationId: true } }),
+      tx.membershipPosition.findMany({ where: { membershipId: target.id }, select: { positionId: true } }),
+    ]);
+    const addL = input.locationIds.filter((id) => !haveL.some((h) => h.locationId === id));
+    const addP = input.positionIds.filter((id) => !haveP.some((h) => h.positionId === id));
+    if (addL.length) await tx.membershipLocation.createMany({ data: addL.map((locationId) => ({ membershipId: target.id, locationId })) as never });
+    if (addP.length) await tx.membershipPosition.createMany({ data: addP.map((positionId) => ({ membershipId: target.id, positionId })) as never });
+  });
+  await audit({
+    businessId: ctx.businessId,
+    actorUserId: ctx.userId,
+    action: "MEMBER_ASSIGNMENTS_UPDATED",
+    targetType: "Membership",
+    targetId: target.id,
+    data: { locationIds: input.locationIds, positionIds: input.positionIds },
+  });
+}

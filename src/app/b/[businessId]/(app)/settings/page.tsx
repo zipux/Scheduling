@@ -7,6 +7,9 @@ import type { Permission } from "@/lib/permissions";
 import { PageHeader } from "@/components/app/page-header";
 
 const SECTIONS: { key: string; href: string; perm: Permission }[] = [
+  { key: "business", href: "/settings/business", perm: "business.settings" },
+  { key: "locations", href: "/settings/locations", perm: "business.settings" },
+  { key: "positions", href: "/settings/positions", perm: "business.settings" },
   { key: "roles", href: "/settings/roles", perm: "roles.manage" },
 ];
 
@@ -25,7 +28,7 @@ export default async function SettingsPage({ params }: PageProps<"/b/[businessId
             <Link href={`/b/${businessId}${s.href}`} className="flex min-h-14 items-center justify-between px-4 hover:bg-muted">
               <span>
                 <span className="block font-medium">{t(`${s.key}.title`)}</span>
-                <span className="block text-sm text-muted-foreground">{t(`${s.key}.description`)}</span>
+                <span className="block text-sm text-muted-foreground">{t(`${s.key}.summary`)}</span>
               </span>
               <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
             </Link>
