@@ -138,14 +138,14 @@ model Business {
   setupCompletedAt   DateTime?          @db.Timestamptz(3)
 
   // Request rules
-  allowSelfTimeOffApproval  Boolean @default(true)
-  escalateAfterHours        Int     @default(72)
-  timeOffMinNoticeDays      Int     @default(0)
+  allowSelfTimeOffApproval  Boolean  @default(true)
+  escalateAfterHours        Int      @default(72)
+  timeOffMinNoticeDays      Int      @default(0)
   timeOffTypes              String[] @default(["vacation", "sick", "personal", "unpaid", "other"])
-  availabilityNeedsApproval Boolean @default(false)
-  dropNeedsApproval         Boolean @default(true)
-  pickupNeedsApproval       Boolean @default(true)
-  swapNeedsApproval         Boolean @default(true)
+  availabilityNeedsApproval Boolean  @default(false)
+  dropNeedsApproval         Boolean  @default(true)
+  pickupNeedsApproval       Boolean  @default(true)
+  swapNeedsApproval         Boolean  @default(true)
 
   // Scheduling / people
   minorAgeThreshold   Int     @default(19)
@@ -210,6 +210,7 @@ model Location {
 
   memberships MembershipLocation[]
   shifts      Shift[]
+  timeEntries TimeEntry[]
 
   @@unique([id, businessId])
   @@index([businessId])
@@ -616,6 +617,7 @@ model TimeEntry {
   businessId      String
   membershipId    String
   locationId      String
+  location        Location    @relation(fields: [locationId], references: [id])
   shiftId         String?
   positionId      String?
   /// Raw (unrounded) instants. null clockIn = MISSING_CLOCK_IN case.

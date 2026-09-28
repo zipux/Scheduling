@@ -15,6 +15,7 @@ const [cmd, ...args] = process.argv.slice(2);
 const res = spawnSync(cmd, args, {
   stdio: "inherit",
   shell: process.platform === "win32",
-  env: { ...process.env, DATABASE_URL: url, MIGRATE_DATABASE_URL: process.env.TEST_MIGRATE_DATABASE_URL ?? url },
+  // Neon's pooler can strand Prisma's session advisory lock; nothing else migrates the test DB concurrently.
+  env: { ...process.env, DATABASE_URL: url, MIGRATE_DATABASE_URL: process.env.TEST_MIGRATE_DATABASE_URL ?? url, PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: "1" },
 });
 process.exit(res.status ?? 1);

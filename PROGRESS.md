@@ -103,3 +103,21 @@ Append-only log, newest phase at the bottom.
 - Request notifications are in-app rows only until the Phase 8 bell/preferences UI.
 
 **Next:** Phase 6 — Time clock (punches, breaks, geofence check, offline queue, kiosk devices, missing-punch flow, corrections + audit).
+
+## Phase 6 — Time clock — ✅ complete (2026-09-28)
+
+**What works**
+- Personal clock (`/b/…/clock`): PIN-confirmed clock in / start & end break / clock out; server-side geofence (haversine; required / warn / off; poor accuracy accepted + GEO_UNCERTAIN; shift override → OFFSITE; kiosk skips GPS); position and accuracy stored on every punch; early clock-in window, unscheduled (flag or refuse), LATE / EARLY_LEAVE; rounding (none by default) with raw times kept.
+- PIN: per-membership HMAC-SHA256, 5 wrong attempts → 5-minute lock, all attempts logged.
+- Offline punches: queued on the device with device time + last GPS fix, synced on reconnect, OFFLINE_QUEUED with device and server time; rejected beyond `maxClockSkewMinutes`.
+- Missing clock-out: never closed automatically; flagged after `maxShiftHours`, excluded from "working now", employee and managers notified; next clock-in asks for the previous finish time (a correction request, not a punch). Clock-out with no clock-in → MISSING_CLOCK_IN.
+- Corrections (§7.4): managers edit (reason mandatory, immutable before/after audit), add missing entries, confirm flags; employees request corrections and can see each entry's history; nobody can edit their own time (owner included).
+- Time review page: working now, Unresolved time queue (blocking flags first), correction requests, add entry.
+- Kiosk devices: own identity (hashed token bound to business + location), enrol signs the manager out, staff names + punch only, manager PIN to exit (revokes), Settings → Kiosk devices with last-seen and revoke.
+- Multi-business: `/clock` defaults to the soonest shift's business, switcher on the clock page, "All my hours" across businesses for the user only; isolation test proves one business can't discover the other.
+- Seed: entries carrying MISSING_CLOCK_OUT, MISSING_CLOCK_IN, OFFLINE_QUEUED, GEO_UNCERTAIN, GEO_OUTSIDE, OFFSITE, UNSCHEDULED, LATE, EARLY_LEAVE (BREAK_MISSED arrives with Phase 7a).
+
+**Known issues / notes**
+- Offline shell (service worker) is Phase 9; the punch queue works whenever the page is open.
+
+**Next:** Phase 7a — §7.6 and §7.7 as pure, tested functions with no UI. Every §7.6.9 test must pass before 7b.

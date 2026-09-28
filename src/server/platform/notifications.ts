@@ -4,6 +4,13 @@ import { flushBusinessNotifications } from "@/server/services/schedule-notify";
 import { sendEmail } from "@/server/email/send";
 import { notificationEmail } from "@/server/email/templates";
 import { env } from "@/lib/env";
+import { raiseMissingClockOuts } from "@/server/services/clock";
+
+/** §7.3: flag entries open past maxShiftHours in every business, and notify immediately. */
+export async function raiseAllMissingClockOuts() {
+  const open = await rawDb.timeEntry.findMany({ where: { clockOut: null, NOT: { clockIn: null } }, distinct: ["businessId"], select: { businessId: true } });
+  for (const { businessId } of open) await raiseMissingClockOuts(businessId);
+}
 
 /**
  * Flushes every business's due notifications and emails them, unless the person

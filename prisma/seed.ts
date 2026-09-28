@@ -257,6 +257,27 @@ async function seedRequests(biz: Seeded, tz: string) {
   }
 }
 
+/** Clock entries, including one carrying each punch-related flag (§7.7). */
+async function seedClock(biz: Seeded) {
+  const businessId = biz.business.id;
+  const m = biz.memberships;
+  const loc = biz.locations[0];
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000);
+  const entry = async (email: string, data: object, flags: string[] = []) => {
+    const e = await db.timeEntry.create({ data: { businessId, membershipId: m[email], locationId: loc.id, source: "personal", ...data } });
+    for (const type of flags) await db.timeEntryFlag.create({ data: { businessId, timeEntryId: e.id, type: type as never } });
+    return e;
+  };
+  const done = await entry("emma@maple.example.com", { clockIn: hoursAgo(30), clockOut: hoursAgo(22), inLat: loc.lat, inLng: loc.lng, inAccuracy: 12 });
+  await db.breakEntry.create({ data: { businessId, timeEntryId: done.id, startsAt: hoursAgo(26), endsAt: hoursAgo(25.5) } });
+  await entry("noah@maple.example.com", { clockIn: hoursAgo(20) }, ["MISSING_CLOCK_OUT"]);
+  await entry("mia@maple.example.com", { clockIn: null, clockOut: hoursAgo(26) }, ["MISSING_CLOCK_IN"]);
+  await entry("lead@maple.example.com", { clockIn: hoursAgo(50), clockOut: hoursAgo(42), source: "offline", inDeviceTime: hoursAgo(50), inServerTime: hoursAgo(49) }, ["OFFLINE_QUEUED"]);
+  await entry("assistant@maple.example.com", { clockIn: hoursAgo(28), clockOut: hoursAgo(20), inLat: (loc.lat ?? 0) + 0.0003, inLng: loc.lng, inAccuracy: 140 }, ["GEO_UNCERTAIN", "LATE"]);
+  await entry("liam@maple.example.com", { clockIn: hoursAgo(54), clockOut: hoursAgo(49), inLat: (loc.lat ?? 0) + 0.01, inLng: loc.lng, inAccuracy: 15 }, ["GEO_OUTSIDE", "UNSCHEDULED", "EARLY_LEAVE"]);
+  await entry("manager@maple.example.com", { clockIn: hoursAgo(76), clockOut: hoursAgo(68) }, ["OFFSITE"]);
+}
+
 function localMidnight(dateKey: string, tz: string) {
   return shiftInstants(dateKey, "00:00", "00:01", tz).startsAt;
 }
@@ -293,6 +314,10 @@ async function main() {
       { name: "Mia Bartender", email: "mia@maple.example.com", role: "employee", pin: "3456", wageCents: 2000, dob: "1998-03-03", positions: ["Bar", "Server"], locations: [0, 1] },
       { name: "Liam Host", email: "liam@maple.example.com", role: "employee", pin: "4567", wageCents: 1750, dob: "2009-05-15", positions: ["Host"], locations: [1] },
       { name: "Sam Shared", email: "sam@example.com", role: "employee", pin: "9876", wageCents: 1850, dob: "2001-10-10", positions: ["Server"], locations: [1] },
+      // No scheduled shifts: handy for trying the clock at any time of day.
+      { name: "Clara Clock", email: "clara@maple.example.com", role: "employee", pin: "2580", wageCents: 1800, dob: "1996-02-02", positions: ["Server"], locations: [0] },
+      { name: "Omar Offline", email: "omar@maple.example.com", role: "employee", pin: "1470", wageCents: 1800, dob: "1993-03-03", positions: ["Kitchen"], locations: [0] },
+      { name: "Pat Kiosk", email: "pat@maple.example.com", role: "employee", pin: "3690", wageCents: 1800, dob: "1991-04-04", positions: ["Host"], locations: [0] },
     ],
   });
 
@@ -316,6 +341,7 @@ async function main() {
   await seedSchedule(maple, "America/Toronto");
   await seedSchedule(harbour, "America/Vancouver");
   await seedRequests(maple, "America/Toronto");
+  await seedClock(maple);
 
   console.log("\nSeed complete.");
   console.log(`Password for every seed account: ${SEED_PASSWORD}`);

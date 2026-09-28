@@ -18,9 +18,10 @@ export default async function BusinessLayout({ children, params }: LayoutProps<"
 
   const items: NavKey[] = ["dashboard", "schedule", "clock", "requests", "messages"];
   if (hasPermission(ctx, "employees.edit") || hasPermission(ctx, "employees.invite")) items.push("people");
+  if (hasPermission(ctx, "timeclock.edit") || hasPermission(ctx, "timeclock.add")) items.push("timeclock");
   if (hasPermission(ctx, "timesheets.approve")) items.push("timesheets");
   if (hasPermission(ctx, "reports.view")) items.push("reports");
-  if (["business.settings", "roles.manage", "payrules.manage", "blackout.manage"].some((p) => hasPermission(ctx, p as never)))
+  if (["business.settings", "roles.manage", "payrules.manage", "blackout.manage", "timeclock.edit"].some((p) => hasPermission(ctx, p as never)))
     items.push("settings");
   items.push("more");
 

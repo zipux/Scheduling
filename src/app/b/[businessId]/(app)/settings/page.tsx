@@ -11,6 +11,7 @@ const SECTIONS: { key: string; href: string; perm: Permission }[] = [
   { key: "locations", href: "/settings/locations", perm: "business.settings" },
   { key: "positions", href: "/settings/positions", perm: "business.settings" },
   { key: "blackouts", href: "/settings/blackouts", perm: "blackout.manage" },
+  { key: "kiosks", href: "/settings/kiosks", perm: "timeclock.edit" },
   { key: "roles", href: "/settings/roles", perm: "roles.manage" },
 ];
 

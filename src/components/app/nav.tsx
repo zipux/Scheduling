@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
   BarChart3,
   Settings,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ export type NavKey =
   | "more"
   | "people"
   | "timesheets"
+  | "timeclock"
   | "reports"
   | "settings";
 
@@ -39,6 +41,7 @@ const ICONS: Record<NavKey, LucideIcon> = {
   more: MoreHorizontal,
   people: Users,
   timesheets: FileSpreadsheet,
+  timeclock: ClipboardCheck,
   reports: BarChart3,
   settings: Settings,
 };
@@ -52,6 +55,7 @@ const PATHS: Record<NavKey, string> = {
   more: "/more",
   people: "/people",
   timesheets: "/timesheets",
+  timeclock: "/timeclock",
   reports: "/reports",
   settings: "/settings",
 };
