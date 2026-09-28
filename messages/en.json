@@ -19,7 +19,8 @@
     "switchBusiness": "Switch business",
     "mainNavigation": "Main navigation",
     "platformAdmin": "Platform admin",
-    "timeclock": "Time review"
+    "timeclock": "Time review",
+    "unreadMessages": "{count} unread"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -404,7 +405,9 @@
       "roundNearest": "Nearest interval",
       "roundingInterval": "Interval",
       "minutes": "{n} minutes",
-      "summary": "Business info, request rules and time clock rules."
+      "summary": "Business info, request rules and time clock rules.",
+      "autoGroups": "Group chats per location and position",
+      "autoGroupsHint": "Kept in sync with who works where."
     },
     "locations": {
       "title": "Locations",
@@ -994,5 +997,70 @@
       "timeoff": "Time off",
       "holidays": "Holiday entitlements"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "open": "Notifications ({count} unread)",
+    "unread": "{count} unread",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications yet.",
+    "prefsTitle": "Email notifications",
+    "prefsHint": "You always get these in the app. Turn off the emails you don't want.",
+    "types": {
+      "schedule_changed": "Schedule changes",
+      "request_pending": "Requests waiting for me",
+      "request_reviewed": "My requests answered",
+      "announcement": "Announcements",
+      "time_edited": "Changes to my time",
+      "timesheet_approved": "Timesheet approved"
+    }
+  },
+  "messages": {
+    "title": "Messages",
+    "tabs": {
+      "chats": "Chats",
+      "announcements": "Announcements"
+    },
+    "noAnnouncements": "No announcements yet.",
+    "noChats": "No conversations yet",
+    "noChatsBody": "Start a chat with a coworker.",
+    "image": "(image)",
+    "noMessagesYet": "No messages yet",
+    "muted": "Muted",
+    "newChat": "New chat",
+    "direct": "Direct message",
+    "group": "Group",
+    "person": "Person",
+    "start": "Start chat",
+    "groupName": "Group name",
+    "members": "Members",
+    "createGroup": "Create group",
+    "newAnnouncement": "New announcement",
+    "audience": "To",
+    "everyone": "Everyone",
+    "aLocation": "A location",
+    "aRole": "A role",
+    "aPosition": "A position",
+    "which": "Which",
+    "titleLabel": "Title",
+    "body": "Message",
+    "requireConfirmation": "Ask people to confirm they've read it",
+    "send": "Send",
+    "announcementSent": "Announcement sent.",
+    "new": "New",
+    "confirmed": "Confirmed",
+    "thanks": "Thanks — confirmed.",
+    "confirmRead": "I've read this",
+    "receipts": "Read receipts",
+    "read": "read",
+    "unread": "not read yet",
+    "back": "All messages",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "leave": "Leave group",
+    "tooBig": "Images can be up to 5 MB.",
+    "imageFrom": "Image from {name}",
+    "attachImage": "Attach an image",
+    "message": "Message"
   }
 }

@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/app/page-header";
 import { ChangePinForm } from "./change-pin-form";
 import { WageHistory } from "@/components/app/wage-history";
 import { listWages } from "@/server/services/wages";
+import { myPreferences } from "@/server/services/notifications";
+import { NotificationPrefs } from "./notification-prefs";
 
 export async function generateMetadata() {
   const t = await getTranslations("nav");
@@ -16,6 +18,7 @@ export default async function AccountPage({ params }: PageProps<"/b/[businessId]
   const { businessId } = await params;
   const ctx = await requireBusinessPage(businessId);
   const t = await getTranslations("account");
+  const tn = await getTranslations("notifications");
   const memberships = await activeMemberships(ctx.userId);
   return (
     <>
@@ -32,6 +35,11 @@ export default async function AccountPage({ params }: PageProps<"/b/[businessId]
           currency={ctx.business.currency}
           positions={new Map((await ctx.db.position.findMany()).map((p) => [p.id, p.name]))}
         />
+      </section>
+      <section className="mb-8 max-w-md space-y-2">
+        <h2 className="font-medium">{tn("prefsTitle")}</h2>
+        <p className="text-sm text-muted-foreground">{tn("prefsHint")}</p>
+        <NotificationPrefs businessId={businessId} prefs={await myPreferences(ctx)} />
       </section>
       <section className="max-w-md space-y-2">
         <h2 className="font-medium">{t("myBusinesses")}</h2>

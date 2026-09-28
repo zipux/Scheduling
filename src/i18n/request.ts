@@ -25,5 +25,14 @@ export default getRequestConfig(async () => {
   const locale = isLocale(requested) ? requested : DEFAULT_LOCALE;
   const messages =
     locale === "en" ? en : deepMerge(en, (await import(`../../messages/${locale}.json`)).default as Messages);
-  return { locale, messages, timeZone: "UTC" };
+  return {
+    locale,
+    messages,
+    timeZone: "UTC",
+    // In tests (I18N_STRICT=1) a missing or malformed message fails loudly instead of rendering the key.
+    onError(error) {
+      if (process.env.I18N_STRICT === "1") throw error;
+      console.error(error);
+    },
+  };
 });

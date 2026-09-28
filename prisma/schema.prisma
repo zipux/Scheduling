@@ -151,6 +151,8 @@ model Business {
   minorAgeThreshold   Int     @default(19)
   directoryShowsPhone Boolean @default(true)
   directoryShowsEmail Boolean @default(true)
+  /// Keep a group chat per location and per position in sync with assignments (§9).
+  autoChatGroups      Boolean @default(false)
 
   // Time clock rules (§7.3)
   clockModePersonal       Boolean      @default(true)

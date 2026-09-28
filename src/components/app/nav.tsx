@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CountBadge, usePulse } from "@/components/app/pulse";
 
 export type NavKey =
   | "dashboard"
@@ -74,6 +75,8 @@ function useIsActive(base: string) {
 export function BottomTabBar({ base }: { base: string }) {
   const t = useTranslations("nav");
   const isActive = useIsActive(base);
+  const pulse = usePulse();
+  const unread = pulse.messages + pulse.announcements;
   return (
     <nav
       aria-label={t("mainNavigation")}
@@ -94,7 +97,10 @@ export function BottomTabBar({ base }: { base: string }) {
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >
-                <Icon className="size-5" aria-hidden />
+                <span className="relative">
+                  <Icon className="size-5" aria-hidden />
+                  {key === "messages" && <CountBadge count={unread} label={t("unreadMessages", { count: unread })} />}
+                </span>
                 {t(key)}
               </Link>
             </li>
@@ -108,6 +114,8 @@ export function BottomTabBar({ base }: { base: string }) {
 export function SideNav({ base, items }: { base: string; items: NavKey[] }) {
   const t = useTranslations("nav");
   const isActive = useIsActive(base);
+  const pulse = usePulse();
+  const unread = pulse.messages + pulse.announcements;
   return (
     <nav aria-label={t("mainNavigation")} className="hidden w-56 shrink-0 border-r md:block" data-testid="side-nav">
       <ul className="sticky top-14 space-y-1 p-3">
@@ -125,7 +133,10 @@ export function SideNav({ base, items }: { base: string; items: NavKey[] }) {
                 )}
               >
                 <Icon className="size-4" aria-hidden />
-                {t(key)}
+                <span className="relative">
+                  {t(key)}
+                  {key === "messages" && <CountBadge count={unread} label={t("unreadMessages", { count: unread })} />}
+                </span>
               </Link>
             </li>
           );

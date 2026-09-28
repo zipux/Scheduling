@@ -281,6 +281,36 @@ async function seedClock(biz: Seeded) {
   await entry("gm@maple.example.com", { clockIn: hoursAgo(33), clockOut: hoursAgo(24) }, ["BREAK_MISSED"]);
 }
 
+/** A DM, a group chat and an announcement that asks for read confirmation. */
+async function seedMessages(biz: Seeded) {
+  const businessId = biz.business.id;
+  const m = biz.memberships;
+  const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000);
+  const dmMembers = [m["manager@maple.example.com"], m["emma@maple.example.com"]];
+  const dm = await db.conversation.create({ data: { businessId, kind: "direct", autoKey: `dm:${[...dmMembers].sort().join(":")}` } });
+  await db.conversationMember.createMany({ data: dmMembers.map((membershipId) => ({ businessId, conversationId: dm.id, membershipId })) });
+  await db.message.createMany({
+    data: [
+      { businessId, conversationId: dm.id, senderMembershipId: dmMembers[0], body: "Can you cover the patio on Friday?", createdAt: minutesAgo(90) },
+      { businessId, conversationId: dm.id, senderMembershipId: dmMembers[1], body: "Yes, happy to.", createdAt: minutesAgo(80) },
+    ],
+  });
+  const kitchen = ["assistant@maple.example.com", "lead@maple.example.com", "noah@maple.example.com", "omar@maple.example.com"].map((e) => m[e]);
+  const group = await db.conversation.create({ data: { businessId, kind: "group", name: "Kitchen crew" } });
+  await db.conversationMember.createMany({ data: kitchen.map((membershipId) => ({ businessId, conversationId: group.id, membershipId })) });
+  await db.message.create({ data: { businessId, conversationId: group.id, senderMembershipId: kitchen[0], body: "New fryer arrives Tuesday — training at 3pm.", createdAt: minutesAgo(30) } });
+  await db.announcement.create({
+    data: {
+      businessId,
+      senderMembershipId: m["owner@maple.example.com"],
+      audience: { type: "all" },
+      title: "New allergen procedure",
+      body: "From Monday, every allergen order is double-checked at the pass. Please read and confirm.",
+      requireReadConfirmation: true,
+    },
+  });
+}
+
 function localMidnight(dateKey: string, tz: string) {
   return shiftInstants(dateKey, "00:00", "00:01", tz).startsAt;
 }
@@ -345,6 +375,7 @@ async function main() {
   await seedSchedule(harbour, "America/Vancouver");
   await seedRequests(maple, "America/Toronto");
   await seedClock(maple);
+  await seedMessages(maple);
 
   console.log("\nSeed complete.");
   console.log(`Password for every seed account: ${SEED_PASSWORD}`);

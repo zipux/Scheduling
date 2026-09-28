@@ -33,6 +33,7 @@ export default defineConfig({
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
       APP_URL: baseURL,
       DISABLE_RATE_LIMIT: "1",
+      I18N_STRICT: "1",
       RESEND_API_KEY: "",
     },
   },

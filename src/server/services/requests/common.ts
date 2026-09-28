@@ -6,9 +6,13 @@ import { UserError } from "@/server/action";
 import { audit } from "@/server/audit";
 import type { TenantDb } from "@/server/db/tenant";
 
-/** In-app notification, shown immediately (requests aren't batched; §6 "notifications to both sides"). */
+/**
+ * In-app notification, shown immediately (requests aren't batched; §6 "notifications
+ * to both sides"). `flushAfter = now` queues its email for the next flush, which
+ * skips it if the person opted out of that type.
+ */
 export async function notify(db: TenantDb, membershipId: string, type: string, title: string, body: string, payload?: object) {
-  await db.notification.create({ data: { membershipId, type, title, body, payload: (payload ?? undefined) as never } as never });
+  await db.notification.create({ data: { membershipId, type, title, body, payload: (payload ?? undefined) as never, flushAfter: new Date() } as never });
 }
 
 /** Everyone who could review a request of this type from `requesterId` (permission + seniority). */

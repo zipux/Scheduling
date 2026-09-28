@@ -28,6 +28,7 @@ export default async function BusinessSettingsPage({ params }: PageProps<"/b/[bu
             burdenNote: b.burdenNote ?? "",
             directoryShowsPhone: b.directoryShowsPhone,
             directoryShowsEmail: b.directoryShowsEmail,
+            autoChatGroups: b.autoChatGroups,
           }}
         />
         <RequestRulesForm

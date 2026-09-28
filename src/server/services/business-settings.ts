@@ -18,6 +18,7 @@ export const businessInfoSchema = z.object({
   burdenNote: z.string().trim().max(300).optional().default(""),
   directoryShowsPhone: z.boolean(),
   directoryShowsEmail: z.boolean(),
+  autoChatGroups: z.boolean().default(false),
 });
 
 export const requestRulesSchema = z.object({

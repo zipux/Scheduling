@@ -168,3 +168,21 @@ Append-only log, newest phase at the bottom.
 **Blocked**: unchanged — see Phase 7a's "Blocked" list (weekly overtime under semi-monthly/monthly periods; mixed-rate overtime; `paidWhenNotTaken` meaning; average-day formula is owner-configured).
 
 **Next:** Phase 8 — Messaging (DMs, groups, announcements, unread counts, notification bell + batching, preferences).
+
+## Phase 8 — Messaging — ✅ complete (2026-09-28)
+
+**What works**
+- Direct messages (reused per pair), group chats, optional auto-groups per location/position synced from assignments; mute; leave group.
+- Image attachments (≤ 5 MB, content-sniffed PNG/JPEG/GIF/WebP) behind a storage interface (local disk / S3-compatible), served only to conversation members.
+- Announcements to everyone / a location / a role / a position (`messages.broadcast`), optional read confirmation, read receipts for senders.
+- Unread counts on the Messages tab (polled every 10 s), thread polling every 5 s; notification bell (always on) with mark-all-read.
+- Notification batching from Phase 4 plus immediate notifications for requests, announcements, time edits and approvals; per-type email opt-out on Account.
+- Seed: a DM, a "Kitchen crew" group and an announcement requiring confirmation.
+
+**Tests**: unit + integration 335, e2e 78 (+8 skipped by design) on mobile + desktop; e2e now runs next-intl in strict mode.
+
+**Known issues / notes**
+- The S3 storage adapter is implemented but untested against a real bucket (deployment step).
+- Web push is not implemented (the spec says "later — leave the interface ready"; notifications are rows + an email flush, so a push sender can be added to the flush).
+
+**Next:** Phase 9 — Polish (PWA + offline shell, accessibility pass, empty/loading/error states, data export payload, full e2e run, README).

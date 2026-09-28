@@ -39,6 +39,7 @@ type Info = {
   burdenNote: string;
   directoryShowsPhone: boolean;
   directoryShowsEmail: boolean;
+  autoChatGroups: boolean;
 };
 
 export function BusinessInfoForm({ businessId, initial, timezones, currencies }: { businessId: string; initial: Info; timezones: string[]; currencies: string[] }) {
@@ -73,6 +74,7 @@ export function BusinessInfoForm({ businessId, initial, timezones, currencies }:
       <TextField id="biz-burden-note" label={t("burdenNote")} hint={t("burdenNoteHint")} value={v.burdenNote} onChange={set("burdenNote")} errors={e.burdenNote} />
       <SwitchField label={t("dirPhone")} checked={v.directoryShowsPhone} onChange={set("directoryShowsPhone")} />
       <SwitchField label={t("dirEmail")} checked={v.directoryShowsEmail} onChange={set("directoryShowsEmail")} />
+      <SwitchField label={t("autoGroups")} hint={t("autoGroupsHint")} checked={v.autoChatGroups} onChange={set("autoChatGroups")} />
     </Section>
   );
 }

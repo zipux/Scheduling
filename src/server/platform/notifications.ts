@@ -19,7 +19,7 @@ export async function raiseAllMissingClockOuts() {
  */
 export async function flushAllDueNotifications(now = new Date()) {
   const due = await rawDb.notification.findMany({
-    where: { flushAfter: { lte: now } },
+    where: { flushAfter: { lte: now }, type: "schedule.changed" },
     distinct: ["businessId"],
     select: { businessId: true },
   });
@@ -41,6 +41,26 @@ export async function flushAllDueNotifications(now = new Date()) {
       await rawDb.notification.update({ where: { id: m.notificationId }, data: { emailedAt: new Date() } });
       sent++;
     }
+  }
+  // Non-batched notifications (requests, announcements…): one email each, unless opted out.
+  const single = await rawDb.notification.findMany({
+    where: { flushAfter: { lte: now }, type: { not: "schedule.changed" }, emailedAt: null },
+    take: 500,
+    orderBy: { createdAt: "asc" },
+  });
+  for (const n of single) {
+    await rawDb.notification.update({ where: { id: n.id }, data: { flushAfter: null } });
+    const membership = await rawDb.membership.findFirst({
+      where: { id: n.membershipId, businessId: n.businessId, status: "active", accessRevokedAt: null },
+      include: { user: { select: { email: true } } },
+    });
+    if (!membership) continue;
+    const pref = await rawDb.notificationPreference.findUnique({ where: { membershipId_type: { membershipId: n.membershipId, type: n.type } } });
+    if (pref && !pref.email) continue;
+    const tpl = await notificationEmail({ title: n.title, body: n.body, url: `${env().APP_URL}/b/${n.businessId}` });
+    await sendEmail({ to: membership.user.email, template: n.type, businessId: n.businessId, ...tpl });
+    await rawDb.notification.update({ where: { id: n.id }, data: { emailedAt: new Date() } });
+    sent++;
   }
   return { businesses: due.length, sent };
 }

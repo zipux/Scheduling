@@ -4,6 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { activeMemberships, hasPermission, requireBusinessPage } from "@/server/auth/context";
 import { BottomTabBar, SideNav, type NavKey } from "@/components/app/nav";
 import { BusinessSwitcher } from "@/components/app/business-switcher";
+import { PulseProvider } from "@/components/app/pulse";
+import { NotificationBell } from "@/components/app/notification-bell";
 
 export default async function BusinessLayout({ children, params }: LayoutProps<"/b/[businessId]">) {
   const { businessId } = await params;
@@ -26,12 +28,14 @@ export default async function BusinessLayout({ children, params }: LayoutProps<"
   items.push("more");
 
   return (
+    <PulseProvider businessId={businessId}>
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur">
         <Link href={base} className="flex min-h-11 min-w-0 items-center font-semibold">
           <span className="truncate">{ctx.business.name}</span>
         </Link>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationBell businessId={businessId} />
           {memberships.length > 1 && (
             <BusinessSwitcher
               current={businessId}
@@ -49,5 +53,6 @@ export default async function BusinessLayout({ children, params }: LayoutProps<"
       </div>
       <BottomTabBar base={base} />
     </div>
+    </PulseProvider>
   );
 }
