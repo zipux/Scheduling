@@ -33,7 +33,6 @@ describe("clock rules schema", () => {
     lateToleranceMinutes: "5",
     maxShiftHours: "16",
     maxClockSkewMinutes: "30",
-    workDayStartMinutes: 240,
   };
   it("accepts the defaults", () => expect(clockRulesSchema.safeParse(ok).success).toBe(true));
   it("needs at least one clock mode", () =>

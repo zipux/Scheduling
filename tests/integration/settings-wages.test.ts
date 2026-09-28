@@ -92,13 +92,11 @@ describe("business settings", () => {
       lateToleranceMinutes: 7,
       maxShiftHours: 14,
       maxClockSkewMinutes: 20,
-      workDayStartMinutes: 300,
     });
     const b = await db.business.findUniqueOrThrow({ where: { id: A.business.id } });
     expect(b.allowSelfTimeOffApproval).toBe(false);
     expect(b.timeOffMinNoticeDays).toBe(14);
     expect(b.roundingIntervalMinutes).toBe(0);
-    expect(b.workDayStartMinutes).toBe(300);
     expect(await db.auditLog.count({ where: { businessId: A.business.id, action: "CLOCK_RULES_UPDATED" } })).toBe(1);
   });
   it("denies a manager", async () => {

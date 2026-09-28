@@ -54,7 +54,6 @@ export default async function BusinessSettingsPage({ params }: PageProps<"/b/[bu
             lateToleranceMinutes: String(b.lateToleranceMinutes),
             maxShiftHours: String(b.maxShiftHours),
             maxClockSkewMinutes: String(b.maxClockSkewMinutes),
-            workDayStart: `${String(Math.floor(b.workDayStartMinutes / 60)).padStart(2, "0")}:${String(b.workDayStartMinutes % 60).padStart(2, "0")}`,
           }}
         />
       </div>

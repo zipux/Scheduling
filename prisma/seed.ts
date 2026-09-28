@@ -211,6 +211,7 @@ async function seedSchedule(biz: Seeded, tz: string) {
       { businessId, date: new Date("2026-10-12T00:00:00Z"), name: "Thanksgiving", isStatutory: true, premiumMultiplier: 1.5 },
       { businessId, date: new Date("2026-12-25T00:00:00Z"), name: "Christmas Day", isStatutory: true, premiumMultiplier: 1.5 },
     ],
+    skipDuplicates: true,
   });
   await db.shiftTemplate.createMany({
     data: [

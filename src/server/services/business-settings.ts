@@ -41,7 +41,6 @@ export const clockRulesSchema = z
     lateToleranceMinutes: z.coerce.number().int().min(0).max(120),
     maxShiftHours: z.coerce.number().int().min(4).max(24),
     maxClockSkewMinutes: z.coerce.number().int().min(1).max(240),
-    workDayStartMinutes: z.coerce.number().int().min(0).max(1439),
   })
   .refine((v) => v.clockModePersonal || v.clockModeKiosk, { path: ["clockModePersonal"], message: "Enable at least one way to clock in" })
   .refine((v) => v.roundingMode === "none" || v.roundingIntervalMinutes > 0, {

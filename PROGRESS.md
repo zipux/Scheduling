@@ -151,3 +151,20 @@ Append-only log, newest phase at the bottom.
 - Holiday premium = hours × rate × multiplier **in addition** to normal pay (so ×1.5 means 2.5× total for those hours), and doesn't require eligibility.
 
 **Next:** Phase 7b — pay periods, timesheet screens, approval gate UI, locking, CSV export, Pay rules screen, reports, dashboards.
+
+## Phase 7b — Pay periods, timesheets, approval, CSV, reports, dashboards — ✅ complete (2026-09-28)
+
+**What works**
+- Pay rules screen (`payrules.manage`, §7.6.8): responsibility statement at the top; overtime tiers, minimum daily pay, split-shift span, vacation %, work-day start, break rules, holiday eligibility test and the average-day formula.
+- Holidays screen (`holidays.manage`): provincial presets for any year, add/delete; holidays on the schedule grid (Phase 4) and as their own CSV columns.
+- Timesheets: period navigation; per-person worked/regular/overtime/breaks/top-up/holiday lines/estimated gross/vacation accrued & balance; blocking flags linked to Time review; blocked-calculation reasons shown; approve (period must have ended, nobody still clocked in), Owner "approve with exceptions" (each flag audited individually), Final timesheet for leavers, Owner reopen; approval locks entries and stores a snapshot; vacation accrual rows; holiday entitlement records with inputs; per-person override with reason.
+- Payroll CSV export (audited, rate-limited, formula-injection safe).
+- Reports (`reports.view`): hours by employee, wages by day/location/position, attendance (late, early leave, missing punches, no-shows), time off, holiday entitlements — each exportable to CSV.
+- Dashboards: manager — who's working now, who's late, Unresolved time (blocking count), this week's Scheduled wages, requests, conflicts, schedule warnings, invitation warnings; employee — next shift, clock shortcut, My timesheet, requests.
+- Deactivated staff remain on timesheets/reports/exports for periods they worked (§11).
+
+**Tests**: unit + integration 328, e2e 70 (+8 skipped by design) on mobile 375 px + desktop.
+
+**Blocked**: unchanged — see Phase 7a's "Blocked" list (weekly overtime under semi-monthly/monthly periods; mixed-rate overtime; `paidWhenNotTaken` meaning; average-day formula is owner-configured).
+
+**Next:** Phase 8 — Messaging (DMs, groups, announcements, unread counts, notification bell + batching, preferences).

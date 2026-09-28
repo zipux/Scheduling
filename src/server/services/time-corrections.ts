@@ -151,6 +151,15 @@ export async function addEntry(ctx: BusinessContext, input: z.infer<typeof addEn
     throw new UserError("You can only add time for people junior to you.");
   }
   if (!(await accessibleLocationIds(ctx)).includes(input.locationId)) throw new UserError("Choose a location you manage.");
+  // Adding time inside an approved timesheet changes approved pay: Owner only (§7.5).
+  const approved = await ctx.db.timesheet.findFirst({
+    where: {
+      membershipId: owner.id,
+      status: "approved",
+      payPeriod: { startDate: { lte: input.clockIn }, endDate: { gte: new Date(input.clockIn.getTime() - 2 * 86400_000) } },
+    },
+  });
+  if (approved && !ctx.actor.isOwner) throw new UserError("That time falls in an approved timesheet. Only an Owner can change it.");
   const b = ctx.business;
   const e = await ctx.db.timeEntry.create({
     data: {
@@ -314,4 +323,38 @@ export async function workingNow(ctx: BusinessContext) {
   });
   const people = await ctx.db.membership.findMany({ where: { id: { in: rows.map((r) => r.membershipId) } }, include: { user: { select: { name: true } } } });
   return rows.map((r) => ({ entry: r, name: people.find((p) => p.id === r.membershipId)?.displayName ?? people.find((p) => p.id === r.membershipId)?.user.name ?? "—", onBreak: r.breaks.some((b) => !b.endsAt) }));
+}
+
+/** Who is late (§10): a published shift started beyond the tolerance, not yet ended, with no clock-in. */
+export async function lateNow(ctx: BusinessContext) {
+  const allowed = await accessibleLocationIds(ctx);
+  const now = new Date();
+  const shifts = await ctx.db.shift.findMany({
+    where: {
+      status: "published",
+      deletedAt: null,
+      membershipId: { not: null },
+      locationId: { in: allowed },
+      startsAt: { lt: new Date(now.getTime() - ctx.business.lateToleranceMinutes * 60_000), gt: new Date(now.getTime() - 12 * 3600_000) },
+      endsAt: { gt: now },
+    },
+    include: { location: { select: { name: true, timezone: true } }, membership: { include: { user: { select: { name: true } } } } },
+    orderBy: { startsAt: "asc" },
+  });
+  if (!shifts.length) return [];
+  const entries = await ctx.db.timeEntry.findMany({
+    where: { membershipId: { in: shifts.map((s) => s.membershipId!) }, clockIn: { gte: new Date(now.getTime() - 14 * 3600_000) } },
+    select: { membershipId: true, clockIn: true },
+  });
+  return shifts.filter((s) => !entries.some((e) => e.membershipId === s.membershipId && e.clockIn! >= new Date(s.startsAt.getTime() - 3 * 3600_000)));
+}
+
+export async function unresolvedCount(ctx: BusinessContext) {
+  if (!can(ctx.actor, "timeclock.edit")) return { total: 0, blocking: 0 };
+  const allowed = await accessibleLocationIds(ctx);
+  const [total, blocking] = await Promise.all([
+    ctx.db.timeEntryFlag.count({ where: { resolvedAt: null, timeEntry: { locationId: { in: allowed }, NOT: { membershipId: ctx.membership.id } } } }),
+    ctx.db.timeEntryFlag.count({ where: { resolvedAt: null, type: { in: ["MISSING_CLOCK_OUT", "MISSING_CLOCK_IN", "BREAK_MISSED", "OFFLINE_QUEUED"] }, timeEntry: { locationId: { in: allowed }, NOT: { membershipId: ctx.membership.id } } } }),
+  ]);
+  return { total, blocking };
 }

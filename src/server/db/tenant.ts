@@ -88,6 +88,8 @@ export const RELATION_FIELDS: Record<string, readonly string[]> = {
   BreakRule: ["business"],
   PayRules: ["business"],
   Holiday: ["business"],
+  PayPeriod: ["timesheets"],
+  Timesheet: ["payPeriod"],
   Conversation: ["members", "messages"],
   ConversationMember: ["conversation"],
   Message: ["conversation"],

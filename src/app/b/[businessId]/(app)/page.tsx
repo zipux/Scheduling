@@ -9,6 +9,11 @@ import { timeOffToReview } from "@/server/services/requests/timeoff";
 import { availabilityToReview } from "@/server/services/requests/availability";
 import { myTrades, tradesToReview } from "@/server/services/requests/trades";
 import { ActionButton } from "@/components/app/action-button";
+import { lateNow, unresolvedCount, workingNow } from "@/server/services/time-corrections";
+import { currentWeekStart, loadWeek } from "@/server/services/schedule";
+import { accessibleLocationIds } from "@/server/auth/context";
+import { formatCents } from "@/lib/money";
+import { Clock } from "lucide-react";
 import { resolveConflictAction } from "./requests/actions";
 import { warningText } from "@/components/app/warning-text";
 import { formatInTimeZone } from "date-fns-tz";
@@ -32,6 +37,13 @@ export default async function DashboardPage({ params }: PageProps<"/b/[businessI
   const [toReviewTimeOff, toReviewAvail, toReviewTrades, mine] = await Promise.all([timeOffToReview(ctx), availabilityToReview(ctx), tradesToReview(ctx), myTrades(ctx)]);
   const toReview = [...toReviewTimeOff, ...toReviewAvail, ...toReviewTrades];
   const escalated = toReview.filter((r) => r.escalated).length;
+  const isTimeManager = hasPermission(ctx, "timeclock.edit");
+  const [working, late, unresolved] = isTimeManager ? await Promise.all([workingNow(ctx), lateNow(ctx), unresolvedCount(ctx)]) : [[], [], { total: 0, blocking: 0 }];
+  let weekWages: number | null = null;
+  if (hasPermission(ctx, "wages.view") && hasPermission(ctx, "schedule.edit")) {
+    const locs = await accessibleLocationIds(ctx);
+    if (locs.length) weekWages = (await loadWeek(ctx, currentWeekStart(ctx.business.timezone), locs)).wages?.week ?? null;
+  }
   const myPending = (await ctx.db.timeOffRequest.count({ where: { membershipId: ctx.membership.id, status: "pending" } })) + mine.length;
   let invitationWarnings = 0;
   if (hasPermission(ctx, "employees.invite")) {
@@ -72,6 +84,53 @@ export default async function DashboardPage({ params }: PageProps<"/b/[businessI
             )}
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("clock")}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2 text-sm">
+            <Link href={`/b/${businessId}/clock`} className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 font-medium text-primary-foreground md:h-9" data-testid="dashboard-clock">
+              <Clock className="size-4" aria-hidden />
+              {t("openClock")}
+            </Link>
+            <Link href={`/b/${businessId}/timesheets/${ctx.membership.id}`} className="inline-flex h-11 items-center rounded-lg border px-4 md:h-9">
+              {t("myTimesheet")}
+            </Link>
+          </CardContent>
+        </Card>
+        {isTimeManager && (
+          <Card data-testid="dashboard-working">
+            <CardHeader>
+              <CardTitle className="text-base">{t("workingNow", { count: working.length })}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              {working.slice(0, 8).map((w) => (
+                <p key={w.entry.id}>
+                  {w.name} <span className="text-muted-foreground">· {w.entry.location.name}{w.onBreak ? ` · ${t("onBreak")}` : ""}</span>
+                </p>
+              ))}
+              {late.length > 0 && (
+                <p className="font-medium text-destructive" data-testid="dashboard-late">
+                  {t("late", { names: late.map((s) => s.membership?.displayName ?? s.membership?.user.name).join(", ") })}
+                </p>
+              )}
+              <Link href={`/b/${businessId}/timeclock`} className={unresolved.blocking ? "font-medium text-destructive underline" : "underline"} data-testid="dashboard-unresolved">
+                {t("unresolvedTime", { count: unresolved.total, blocking: unresolved.blocking })}
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+        {weekWages !== null && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t("weekWages")}</CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-semibold tabular-nums" data-testid="dashboard-wages">
+              {formatCents(weekWages, ctx.business.currency)}
+              <p className="text-xs font-normal text-muted-foreground">{t("weekWagesHint")}</p>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{t("pendingRequests")}</CardTitle>

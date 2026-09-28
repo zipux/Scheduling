@@ -116,7 +116,6 @@ type Clock = {
   lateToleranceMinutes: string;
   maxShiftHours: string;
   maxClockSkewMinutes: string;
-  workDayStart: string;
 };
 
 export function ClockRulesForm({ businessId, initial }: { businessId: string; initial: Clock }) {
@@ -125,12 +124,7 @@ export function ClockRulesForm({ businessId, initial }: { businessId: string; in
   const { pending, fieldErrors: e, run } = useAction();
   const [v, setV] = useState(initial);
   const set = <K extends keyof Clock>(k: K) => (val: Clock[K]) => setV((s) => ({ ...s, [k]: val }));
-  const submit = () => {
-    const [hh, mm] = v.workDayStart.split(":").map(Number);
-    const { workDayStart: _w, ...rest } = v;
-    void _w;
-    run(() => saveClockRulesAction(businessId, { ...rest, workDayStartMinutes: hh * 60 + mm } as never), () => router.refresh(), { success: t("saved") });
-  };
+  const submit = () => run(() => saveClockRulesAction(businessId, v as never), () => router.refresh(), { success: t("saved") });
   return (
     <Section title={t("clock")} pending={pending} onSubmit={submit}>
       <SwitchField label={t("modePersonal")} checked={v.clockModePersonal} onChange={set("clockModePersonal")} errors={e.clockModePersonal} />
@@ -140,7 +134,6 @@ export function ClockRulesForm({ businessId, initial }: { businessId: string; in
       <TextField id="clk-late" label={t("lateTolerance")} inputMode="numeric" value={v.lateToleranceMinutes} onChange={set("lateToleranceMinutes")} errors={e.lateToleranceMinutes} />
       <TextField id="clk-max" label={t("maxShift")} hint={t("maxShiftHint")} inputMode="numeric" value={v.maxShiftHours} onChange={set("maxShiftHours")} errors={e.maxShiftHours} />
       <TextField id="clk-skew" label={t("skew")} hint={t("skewHint")} inputMode="numeric" value={v.maxClockSkewMinutes} onChange={set("maxClockSkewMinutes")} errors={e.maxClockSkewMinutes} />
-      <TextField id="clk-wds" type="time" label={t("workDayStart")} hint={t("workDayStartHint")} value={v.workDayStart} onChange={set("workDayStart")} errors={e.workDayStartMinutes} />
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="px-1 text-sm font-medium">{t("rounding")}</legend>
         <div role="note" className="rounded-md bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-50">

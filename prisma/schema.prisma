@@ -781,6 +781,8 @@ model PayPeriod {
   status     PayPeriodStatus @default(open)
   createdAt  DateTime        @default(now()) @db.Timestamptz(3)
 
+  timesheets Timesheet[]
+
   @@unique([businessId, startDate])
 }
 
@@ -793,6 +795,7 @@ model Timesheet {
   id                     String          @id @default(cuid())
   businessId             String
   payPeriodId            String
+  payPeriod              PayPeriod       @relation(fields: [payPeriodId], references: [id])
   membershipId           String
   status                 TimesheetStatus @default(open)
   isFinal                Boolean         @default(false)
