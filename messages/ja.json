@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "dashboard": "ホーム",
+    "schedule": "シフト",
+    "clock": "打刻",
+    "requests": "申請",
+    "messages": "メッセージ",
+    "more": "その他",
+    "signOut": "ログアウト"
+  },
+  "auth": {
+    "signInTitle": "ログイン",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "signIn": "ログイン"
+  }
+}

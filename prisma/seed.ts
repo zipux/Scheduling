@@ -1,0 +1,208 @@
+/**
+ * Development / test seed. DESTRUCTIVE: truncates every table in the target
+ * database first. Run with `npm run db:seed` (dev DB) or `npm run db:test:seed`.
+ *
+ * Seed logins are printed at the end and listed in README.md.
+ */
+import "dotenv/config";
+import { hashPassword } from "better-auth/crypto";
+import { rawDb as db } from "../src/server/db/client";
+import { createBusinessWithDefaults } from "../src/server/platform/business";
+import { pinDigest } from "../src/lib/crypto";
+import { env } from "../src/lib/env";
+
+export const SEED_PASSWORD = "password1234";
+
+type RoleKey = "owner" | "general_manager" | "manager" | "assistant_manager" | "shift_lead" | "employee";
+
+interface Person {
+  name: string;
+  email: string;
+  role: RoleKey;
+  pin: string;
+  wageCents: number;
+  dob: string;
+  positions: string[];
+  locations: number[]; // indexes into the business's locations
+}
+
+async function truncateAll() {
+  const tables = await db.$queryRaw<{ tablename: string }[]>`
+    SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
+  if (tables.length === 0) return;
+  const list = tables.map((t) => `"public"."${t.tablename}"`).join(", ");
+  await db.$executeRawUnsafe(`TRUNCATE TABLE ${list} CASCADE`);
+}
+
+const userIds = new Map<string, string>();
+
+async function ensureUser(name: string, email: string, opts: { isPlatformAdmin?: boolean } = {}) {
+  const existing = userIds.get(email);
+  if (existing) return existing;
+  const user = await db.user.create({
+    data: { name, email, emailVerified: true, isPlatformAdmin: opts.isPlatformAdmin ?? false },
+  });
+  await db.account.create({
+    data: { userId: user.id, accountId: user.id, providerId: "credential", password: await hashPassword(SEED_PASSWORD) },
+  });
+  userIds.set(email, user.id);
+  return user.id;
+}
+
+async function seedBusiness(opts: {
+  name: string;
+  country: string;
+  region: string;
+  timezone: string;
+  locations: { name: string; address: string; lat: number; lng: number }[];
+  positions: { name: string; color: string; requiresMinimumAge?: number }[];
+  people: Person[];
+}) {
+  const { business, roles } = await db.$transaction((tx) =>
+    createBusinessWithDefaults(tx, {
+      name: opts.name,
+      country: opts.country,
+      region: opts.region,
+      timezone: opts.timezone,
+      currency: "CAD",
+    }),
+  );
+  await db.business.update({
+    where: { id: business.id },
+    data: { setupCompletedAt: new Date(), payPeriodAnchorDate: new Date("2026-09-14T00:00:00Z") },
+  });
+  await db.payRules.update({ where: { businessId: business.id }, data: { confirmedAt: new Date() } });
+
+  const locations = [];
+  for (const l of opts.locations) {
+    locations.push(
+      await db.location.create({
+        data: { businessId: business.id, name: l.name, address: l.address, timezone: opts.timezone, lat: l.lat, lng: l.lng },
+      }),
+    );
+  }
+  const positions = new Map<string, string>();
+  for (const p of opts.positions) {
+    const row = await db.position.create({
+      data: { businessId: business.id, name: p.name, color: p.color, requiresMinimumAge: p.requiresMinimumAge ?? null },
+    });
+    positions.set(p.name, row.id);
+  }
+
+  const memberships: Record<string, string> = {};
+  for (const person of opts.people) {
+    const userId = await ensureUser(person.name, person.email);
+    const m = await db.membership.create({
+      data: {
+        businessId: business.id,
+        userId,
+        roleId: roles[person.role].id,
+        status: "active",
+        hireDate: new Date("2025-03-01T00:00:00Z"),
+      },
+    });
+    memberships[person.email] = m.id;
+    await db.employeeProfile.create({
+      data: {
+        businessId: business.id,
+        membershipId: m.id,
+        phone: "+1 416 555 0100",
+        dateOfBirth: new Date(`${person.dob}T00:00:00Z`),
+        address: "123 Example St",
+        emergencyContactName: "Alex Contact",
+        emergencyContactRelation: "Sibling",
+        emergencyContactPhone: "+1 416 555 0199",
+        pinHmac: await pinDigest(env().PIN_HMAC_SECRET, m.id, person.pin),
+        completedAt: new Date(),
+      },
+    });
+    for (const idx of person.locations) {
+      await db.membershipLocation.create({
+        data: { businessId: business.id, membershipId: m.id, locationId: locations[idx].id },
+      });
+    }
+    for (const pos of person.positions) {
+      await db.membershipPosition.create({
+        data: { businessId: business.id, membershipId: m.id, positionId: positions.get(pos)! },
+      });
+    }
+    await db.wage.create({
+      data: {
+        businessId: business.id,
+        membershipId: m.id,
+        rateCents: person.wageCents,
+        type: "hourly",
+        effectiveFrom: new Date("2025-03-01T00:00:00Z"),
+      },
+    });
+  }
+  return { business, locations, positions, memberships, roles };
+}
+
+async function main() {
+  if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed in production");
+  await truncateAll();
+
+  await ensureUser("Platform Admin", "admin@example.com", { isPlatformAdmin: true });
+
+  const maple = await seedBusiness({
+    name: "Maple Bistro",
+    country: "CA",
+    region: "ON",
+    timezone: "America/Toronto",
+    locations: [
+      { name: "King St", address: "100 King St W, Toronto, ON", lat: 43.6487, lng: -79.3817 },
+      { name: "Queen St", address: "500 Queen St W, Toronto, ON", lat: 43.6477, lng: -79.4003 },
+    ],
+    positions: [
+      { name: "Kitchen", color: "#ea580c" },
+      { name: "Server", color: "#2563eb" },
+      { name: "Bar", color: "#7c3aed", requiresMinimumAge: 18 },
+      { name: "Host", color: "#16a34a" },
+    ],
+    people: [
+      { name: "Olivia Owner", email: "owner@maple.example.com", role: "owner", pin: "1111", wageCents: 3500, dob: "1980-04-12", positions: ["Kitchen", "Server"], locations: [0, 1] },
+      { name: "Gina General", email: "gm@maple.example.com", role: "general_manager", pin: "2222", wageCents: 3000, dob: "1985-06-02", positions: ["Server", "Bar"], locations: [0, 1] },
+      { name: "Marco Manager", email: "manager@maple.example.com", role: "manager", pin: "3333", wageCents: 2600, dob: "1990-01-20", positions: ["Server", "Host"], locations: [0] },
+      { name: "Aisha Assistant", email: "assistant@maple.example.com", role: "assistant_manager", pin: "4444", wageCents: 2300, dob: "1994-09-09", positions: ["Kitchen"], locations: [0] },
+      { name: "Leo Lead", email: "lead@maple.example.com", role: "shift_lead", pin: "5555", wageCents: 2100, dob: "1997-11-30", positions: ["Kitchen"], locations: [0] },
+      { name: "Emma Server", email: "emma@maple.example.com", role: "employee", pin: "1234", wageCents: 1800, dob: "2000-02-14", positions: ["Server"], locations: [0] },
+      { name: "Noah Cook", email: "noah@maple.example.com", role: "employee", pin: "2345", wageCents: 1900, dob: "1999-07-04", positions: ["Kitchen"], locations: [0] },
+      { name: "Mia Bartender", email: "mia@maple.example.com", role: "employee", pin: "3456", wageCents: 2000, dob: "1998-03-03", positions: ["Bar", "Server"], locations: [0, 1] },
+      { name: "Liam Host", email: "liam@maple.example.com", role: "employee", pin: "4567", wageCents: 1750, dob: "2009-05-15", positions: ["Host"], locations: [1] },
+      { name: "Sam Shared", email: "sam@example.com", role: "employee", pin: "9876", wageCents: 1850, dob: "2001-10-10", positions: ["Server"], locations: [1] },
+    ],
+  });
+
+  const harbour = await seedBusiness({
+    name: "Harbour Café",
+    country: "CA",
+    region: "BC",
+    timezone: "America/Vancouver",
+    locations: [{ name: "Waterfront", address: "200 Waterfront Rd, Vancouver, BC", lat: 49.2888, lng: -123.1111 }],
+    positions: [
+      { name: "Barista", color: "#92400e" },
+      { name: "Cashier", color: "#0891b2" },
+    ],
+    people: [
+      { name: "Henry Harbour", email: "owner@harbour.example.com", role: "owner", pin: "1111", wageCents: 3200, dob: "1978-08-08", positions: ["Barista"], locations: [0] },
+      { name: "Ava Barista", email: "ava@harbour.example.com", role: "employee", pin: "1357", wageCents: 1800, dob: "2002-12-01", positions: ["Barista", "Cashier"], locations: [0] },
+      { name: "Sam Shared", email: "sam@example.com", role: "employee", pin: "2468", wageCents: 1900, dob: "2001-10-10", positions: ["Cashier"], locations: [0] },
+    ],
+  });
+
+  console.log("\nSeed complete.");
+  console.log(`Password for every seed account: ${SEED_PASSWORD}`);
+  console.log(`  Platform admin:  admin@example.com`);
+  console.log(`  ${maple.business.name}: owner@maple.example.com, gm@, manager@, assistant@, lead@, emma@, noah@, mia@, liam@maple.example.com`);
+  console.log(`  ${harbour.business.name}: owner@harbour.example.com, ava@harbour.example.com`);
+  console.log(`  In both businesses: sam@example.com`);
+}
+
+main()
+  .then(() => db.$disconnect())
+  .catch(async (e) => {
+    console.error(e);
+    await db.$disconnect();
+    process.exit(1);
+  });

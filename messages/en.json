@@ -1,0 +1,72 @@
+{
+  "app": {
+    "name": "Shiftwise",
+    "tagline": "Scheduling and time clock for small teams"
+  },
+  "nav": {
+    "dashboard": "Home",
+    "schedule": "Schedule",
+    "clock": "Clock",
+    "requests": "Requests",
+    "messages": "Messages",
+    "more": "More",
+    "people": "People",
+    "timesheets": "Timesheets",
+    "reports": "Reports",
+    "settings": "Settings",
+    "account": "Account",
+    "signOut": "Sign out",
+    "switchBusiness": "Switch business",
+    "mainNavigation": "Main navigation",
+    "platformAdmin": "Platform admin"
+  },
+  "auth": {
+    "signInTitle": "Sign in",
+    "signInSubtitle": "Use your password, or get a one-time link by email.",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "or": "or",
+    "emailMeALink": "Email me a sign-in link",
+    "linkSent": "If an account exists for that email, a sign-in link is on its way.",
+    "invalidCredentials": "That email and password don't match.",
+    "rateLimited": "Too many attempts. Wait a minute and try again.",
+    "noAccountHint": "Accounts are created from an invitation. Ask your manager to invite you."
+  },
+  "home": {
+    "noBusinesses": "You're not part of any business yet.",
+    "noBusinessesHint": "When a manager invites you, open the link in the invitation email.",
+    "chooseBusiness": "Choose a business"
+  },
+  "dashboard": {
+    "title": "Home",
+    "welcome": "Welcome, {name}",
+    "nextShift": "Next shift",
+    "noUpcomingShift": "No upcoming shifts",
+    "pendingRequests": "Pending requests",
+    "unreadMessages": "Unread messages",
+    "comingSoon": "This area is being built."
+  },
+  "placeholder": {
+    "notYet": "Not available yet",
+    "notYetBody": "This part of the app is coming in a later release."
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back",
+    "loading": "Loading…",
+    "error": "Something went wrong.",
+    "tryAgain": "Try again",
+    "notFound": "Page not found",
+    "notFoundBody": "It may have moved, or you may not have access to it."
+  },
+  "devEmails": {
+    "title": "Dev emails",
+    "subtitle": "Emails captured locally because RESEND_API_KEY is not set.",
+    "empty": "No emails yet.",
+    "to": "To",
+    "sent": "Sent"
+  }
+}

@@ -1,0 +1,977 @@
+// Shift Scheduling & Time Clock — data model (Spec §13).
+//
+// Conventions (see DECISIONS.md):
+// - Every tenant-owned table carries `businessId` directly, even where it could be
+//   reached through a parent. The tenant data-access layer (src/server/db/tenant.ts)
+//   injects it into every query; a test asserts every model with a `businessId`
+//   column is registered as tenant-scoped.
+// - All instants are UTC `timestamptz`. Display uses the location's timezone.
+// - Money is integer cents. Rates/percentages that need fractions use Decimal.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth (Better Auth core tables) + platform
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id                  String    @id @default(cuid())
+  name                String
+  email               String    @unique
+  emailVerified       Boolean   @default(false)
+  image               String?
+  isPlatformAdmin     Boolean   @default(false)
+  locale              String    @default("en")
+  deletionRequestedAt DateTime? @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+
+  sessions    Session[]
+  accounts    Account[]
+  memberships Membership[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime @db.Timestamptz(3)
+  token     String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+/// Generic fixed-window rate limiter bucket (login, magic link, invitations, exports).
+model RateLimit {
+  key         String   @id
+  count       Int
+  windowStart DateTime @db.Timestamptz(3)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Business & organisation
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum SubscriptionStatus {
+  trial
+  active
+  past_due
+  cancelled
+}
+
+enum PayPeriodFrequency {
+  weekly
+  biweekly
+  semimonthly
+  monthly
+}
+
+enum RoundingMode {
+  none
+  employee_favour // clock-in rounded down, clock-out rounded up
+  nearest
+}
+
+model Business {
+  id                 String             @id @default(cuid())
+  name               String
+  country            String // ISO 3166-1 alpha-2
+  region             String // province / state code, e.g. "ON"
+  timezone           String // default IANA tz for new locations
+  currency           String             @default("CAD")
+  subscriptionStatus SubscriptionStatus @default(trial)
+  suspendedAt        DateTime?          @db.Timestamptz(3)
+  setupCompletedAt   DateTime?          @db.Timestamptz(3)
+
+  // Request rules
+  allowSelfTimeOffApproval  Boolean @default(true)
+  escalateAfterHours        Int     @default(72)
+  timeOffMinNoticeDays      Int     @default(0)
+  availabilityNeedsApproval Boolean @default(false)
+  dropNeedsApproval         Boolean @default(true)
+  pickupNeedsApproval       Boolean @default(true)
+  swapNeedsApproval         Boolean @default(true)
+
+  // Scheduling / people
+  minorAgeThreshold   Int     @default(19)
+  directoryShowsPhone Boolean @default(true)
+  directoryShowsEmail Boolean @default(true)
+
+  // Time clock rules (§7.3)
+  clockModePersonal       Boolean      @default(true)
+  clockModeKiosk          Boolean      @default(true)
+  earlyClockInMinutes     Int          @default(10)
+  allowUnscheduledClockIn Boolean      @default(true)
+  roundingMode            RoundingMode @default(none)
+  roundingIntervalMinutes Int          @default(0)
+  lateToleranceMinutes    Int          @default(5)
+  maxShiftHours           Int          @default(16)
+  maxClockSkewMinutes     Int          @default(30)
+
+  // Pay (§7.6) — the rest lives on PayRules
+  payPeriodFrequency  PayPeriodFrequency @default(biweekly)
+  payPeriodAnchorDate DateTime?          @db.Date // first day of any period
+  /// Minutes after local midnight at which a work-day starts (default 04:00).
+  workDayStartMinutes Int                @default(240)
+  vacationPayPercent  Decimal            @default(4) @db.Decimal(6, 3)
+  burdenPercent       Decimal?           @db.Decimal(6, 3)
+  burdenNote          String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  locations    Location[]
+  memberships  Membership[]
+  roles        Role[]
+  positions    Position[]
+  invitations  Invitation[]
+  payRules     PayRules?
+  breakRules   BreakRule[]
+  holidays     Holiday[]
+  kioskDevices KioskDevice[]
+}
+
+enum GeofenceMode {
+  required
+  warn
+  off
+}
+
+model Location {
+  id           String       @id @default(cuid())
+  businessId   String
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name         String
+  address      String?
+  timezone     String
+  lat          Float?
+  lng          Float?
+  radiusM      Int          @default(100)
+  geofenceMode GeofenceMode @default(warn)
+  isTemporary  Boolean      @default(false)
+  archivedAt   DateTime?    @db.Timestamptz(3)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+
+  memberships MembershipLocation[]
+  shifts      Shift[]
+
+  @@unique([id, businessId])
+  @@index([businessId])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  /// Lower number = more senior. Owner is always 1.
+  rank        Int
+  /// Array of permission keys (Spec §3.2).
+  permissions Json     @default("[]")
+  isSystem    Boolean  @default(false)
+  isOwner     Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  memberships Membership[]
+  invitations Invitation[]
+
+  @@unique([id, businessId])
+  @@index([businessId])
+}
+
+enum MembershipStatus {
+  invited
+  active
+  deactivated
+}
+
+model Membership {
+  id                  String           @id @default(cuid())
+  businessId          String
+  business            Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId              String
+  role                Role             @relation(fields: [roleId], references: [id])
+  status              MembershipStatus @default(active)
+  displayName         String?
+  hireDate            DateTime?        @db.Date
+  accessRevokedAt     DateTime?        @db.Timestamptz(3)
+  employmentEndedAt   DateTime?        @db.Date
+  /// Location switcher memory (§5.2). null + preferAllLocations=false → default rule.
+  preferredLocationId String?
+  preferAllLocations  Boolean          @default(false)
+  createdAt           DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @db.Timestamptz(3)
+
+  profile   EmployeeProfile?
+  locations MembershipLocation[]
+  positions MembershipPosition[]
+  wages     Wage[]
+  shifts    Shift[]
+
+  @@unique([businessId, userId])
+  @@unique([id, businessId])
+  @@index([userId])
+}
+
+model EmployeeProfile {
+  id                       String     @id @default(cuid())
+  businessId               String
+  membershipId             String     @unique
+  membership               Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  phone                    String?
+  dateOfBirth              DateTime?  @db.Date
+  address                  String?
+  emergencyContactName     String?
+  emergencyContactRelation String?
+  emergencyContactPhone    String?
+  photoUrl                 String?
+  /// HMAC-SHA256(server secret, membershipId + ":" + pin), hex.
+  pinHmac                  String?
+  pinFailedAttempts        Int        @default(0)
+  pinLockedUntil           DateTime?  @db.Timestamptz(3)
+  completedAt              DateTime?  @db.Timestamptz(3)
+  createdAt                DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime   @updatedAt @db.Timestamptz(3)
+
+  @@index([businessId])
+}
+
+model PinAttempt {
+  id            String   @id @default(cuid())
+  businessId    String
+  membershipId  String
+  success       Boolean
+  source        String // personal | kiosk
+  kioskDeviceId String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, membershipId, createdAt])
+}
+
+model Position {
+  id                 String    @id @default(cuid())
+  businessId         String
+  business           Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name               String
+  color              String    @default("#64748b")
+  requiresMinimumAge Int?
+  archivedAt         DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  memberships MembershipPosition[]
+  shifts      Shift[]
+
+  @@unique([id, businessId])
+  @@index([businessId])
+}
+
+model MembershipPosition {
+  id           String     @id @default(cuid())
+  businessId   String
+  membershipId String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  positionId   String
+  position     Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, positionId])
+  @@index([businessId])
+}
+
+model MembershipLocation {
+  id           String     @id @default(cuid())
+  businessId   String
+  membershipId String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  locationId   String
+  location     Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, locationId])
+  @@index([businessId])
+}
+
+enum WageType {
+  hourly
+  salary
+}
+
+model Wage {
+  id            String     @id @default(cuid())
+  businessId    String
+  membershipId  String
+  membership    Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  positionId    String?
+  /// Hourly: cents per hour. Salary: cents per year.
+  rateCents     Int
+  type          WageType   @default(hourly)
+  effectiveFrom DateTime   @db.Date
+  createdById   String?
+  createdAt     DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, membershipId, effectiveFrom])
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+enum DeliveryStatus {
+  queued
+  sent
+  delivered
+  bounced
+  complained
+}
+
+model Invitation {
+  id             String           @id @default(cuid())
+  /// null for platform-admin → owner invitations before the business exists? Never: business is created first.
+  businessId     String
+  business       Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  email          String
+  name           String
+  roleId         String
+  role           Role             @relation(fields: [roleId], references: [id])
+  locationIds    String[]
+  positionIds    String[]
+  wageCents      Int?
+  hireDate       DateTime?        @db.Date
+  tokenHash      String           @unique
+  expiresAt      DateTime         @db.Timestamptz(3)
+  status         InvitationStatus @default(pending)
+  deliveryStatus DeliveryStatus   @default(queued)
+  lastEmailLogId String?
+  invitedById    String?
+  acceptedAt     DateTime?        @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@index([businessId, status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scheduling
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ShiftStatus {
+  draft
+  published
+}
+
+model Shift {
+  id                String      @id @default(cuid())
+  businessId        String
+  locationId        String
+  location          Location    @relation(fields: [locationId], references: [id])
+  positionId        String?
+  position          Position?   @relation(fields: [positionId], references: [id])
+  /// null = open shift
+  membershipId      String?
+  membership        Membership? @relation(fields: [membershipId], references: [id])
+  startsAt          DateTime    @db.Timestamptz(3)
+  endsAt            DateTime    @db.Timestamptz(3)
+  /// Planning figure only — never deducted from pay (§7.6.3).
+  breakMinutes      Int         @default(0)
+  status            ShiftStatus @default(draft)
+  notes             String?
+  /// null = use location; {"mode":"off"} or {"mode":"custom","lat":..,"lng":..,"radiusM":..}
+  geofenceOverride  Json?
+  /// Snapshot of the last published state, used to diff notifications (§9.1).
+  publishedSnapshot Json?
+  publishedAt       DateTime?   @db.Timestamptz(3)
+  deletedAt         DateTime?   @db.Timestamptz(3)
+  createdAt         DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime    @updatedAt @db.Timestamptz(3)
+
+  @@index([businessId, startsAt])
+  @@index([businessId, membershipId, startsAt])
+}
+
+model ShiftTemplate {
+  id           String   @id @default(cuid())
+  businessId   String
+  name         String
+  locationId   String?
+  positionId   String?
+  startMinutes Int // minutes after local midnight
+  endMinutes   Int // may exceed 1440 for overnight
+  breakMinutes Int      @default(0)
+  notes        String?
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Requests
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RequestStatus {
+  pending
+  approved
+  denied
+  cancelled
+}
+
+enum AvailabilityKind {
+  all_day
+  between
+  unavailable
+}
+
+model AvailabilityRule {
+  id            String           @id @default(cuid())
+  businessId    String
+  membershipId  String
+  weekday       Int // 0 = Sunday
+  kind          AvailabilityKind
+  startMinutes  Int?
+  endMinutes    Int?
+  effectiveFrom DateTime         @db.Date
+  /// Rules are submitted as a weekly set; requestId groups them.
+  requestId     String
+  status        RequestStatus    @default(pending)
+  reviewerId    String?
+  reviewerNote  String?
+  reviewedAt    DateTime?        @db.Timestamptz(3)
+  createdAt     DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, membershipId, effectiveFrom])
+}
+
+model TimeOffRequest {
+  id           String        @id @default(cuid())
+  businessId   String
+  membershipId String
+  type         String // vacation | sick | personal | unpaid | other (configurable)
+  startsAt     DateTime      @db.Timestamptz(3)
+  endsAt       DateTime      @db.Timestamptz(3)
+  allDay       Boolean       @default(true)
+  reason       String?
+  status       RequestStatus @default(pending)
+  reviewerId   String?
+  reviewerNote String?
+  reviewedAt   DateTime?     @db.Timestamptz(3)
+  escalatedAt  DateTime?     @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@index([businessId, membershipId, startsAt])
+}
+
+model BlackoutPeriod {
+  id         String   @id @default(cuid())
+  businessId String
+  locationId String?
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  reason     String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, startDate])
+}
+
+enum TradeType {
+  drop
+  pickup
+  swap
+}
+
+model ShiftTradeRequest {
+  id                 String        @id @default(cuid())
+  businessId         String
+  type               TradeType
+  shiftId            String
+  fromMembershipId   String?
+  toMembershipId     String?
+  /// For swaps: the coworker's shift offered in exchange.
+  swapShiftId        String?
+  coworkerAcceptedAt DateTime?     @db.Timestamptz(3)
+  status             RequestStatus @default(pending)
+  reviewerId         String?
+  reviewerNote       String?
+  reviewedAt         DateTime?     @db.Timestamptz(3)
+  escalatedAt        DateTime?     @db.Timestamptz(3)
+  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
+
+  // A partial unique index (at most one pending-or-approved pickup claim per shift)
+  // is added in a raw SQL migration.
+  @@index([businessId, shiftId])
+}
+
+model ScheduleConflict {
+  id           String    @id @default(cuid())
+  businessId   String
+  shiftId      String
+  membershipId String
+  reason       String
+  sourceType   String // timeoff | availability
+  sourceId     String
+  resolvedAt   DateTime? @db.Timestamptz(3)
+  resolution   String? // reassigned | made_open | kept
+  resolvedById String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, resolvedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Time clock
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PunchSource {
+  personal
+  kiosk
+  manual
+  offline
+}
+
+model KioskDevice {
+  id           String    @id @default(cuid())
+  businessId   String
+  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  locationId   String
+  name         String
+  tokenHash    String    @unique
+  enrolledById String
+  lastSeenAt   DateTime? @db.Timestamptz(3)
+  revokedAt    DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId])
+}
+
+model TimeEntry {
+  id              String      @id @default(cuid())
+  businessId      String
+  membershipId    String
+  locationId      String
+  shiftId         String?
+  positionId      String?
+  /// Raw (unrounded) instants. null clockIn = MISSING_CLOCK_IN case.
+  clockIn         DateTime?   @db.Timestamptz(3)
+  clockOut        DateTime?   @db.Timestamptz(3)
+  clockInRounded  DateTime?   @db.Timestamptz(3)
+  clockOutRounded DateTime?   @db.Timestamptz(3)
+  inLat           Float?
+  inLng           Float?
+  inAccuracy      Float?
+  outLat          Float?
+  outLng          Float?
+  outAccuracy     Float?
+  source          PunchSource @default(personal)
+  /// For offline-queued punches: device clock at punch time; serverTime = receipt.
+  inDeviceTime    DateTime?   @db.Timestamptz(3)
+  inServerTime    DateTime?   @db.Timestamptz(3)
+  outDeviceTime   DateTime?   @db.Timestamptz(3)
+  outServerTime   DateTime?   @db.Timestamptz(3)
+  kioskDeviceId   String?
+  /// Set once the period's timesheet is approved.
+  lockedAt        DateTime?   @db.Timestamptz(3)
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @db.Timestamptz(3)
+
+  breaks BreakEntry[]
+  flags  TimeEntryFlag[]
+
+  @@index([businessId, membershipId, clockIn])
+  @@index([businessId, clockIn])
+}
+
+enum TimeFlagType {
+  MISSING_CLOCK_OUT
+  MISSING_CLOCK_IN
+  BREAK_MISSED
+  OFFLINE_QUEUED
+  GEO_UNCERTAIN
+  GEO_OUTSIDE
+  OFFSITE
+  UNSCHEDULED
+  LATE
+  EARLY_LEAVE
+}
+
+model TimeEntryFlag {
+  id           String       @id @default(cuid())
+  businessId   String
+  timeEntryId  String
+  timeEntry    TimeEntry    @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  type         TimeFlagType
+  detail       Json?
+  resolvedAt   DateTime?    @db.Timestamptz(3)
+  resolvedById String?
+  resolution   String?
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, resolvedAt])
+  @@index([timeEntryId])
+}
+
+model BreakEntry {
+  id          String    @id @default(cuid())
+  businessId  String
+  timeEntryId String
+  timeEntry   TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  startsAt    DateTime  @db.Timestamptz(3)
+  endsAt      DateTime? @db.Timestamptz(3)
+  /// Break was missed and the resolution was "pay it".
+  paid        Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([timeEntryId])
+}
+
+model BreakRule {
+  id               String   @id @default(cuid())
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  afterHours       Decimal  @db.Decimal(5, 2)
+  breakMinutes     Int
+  paidWhenNotTaken Boolean  @default(false)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId])
+}
+
+/// Immutable audit record of every time entry change (§7.4).
+model TimeEntryAudit {
+  id          String   @id @default(cuid())
+  businessId  String
+  timeEntryId String
+  actorUserId String?
+  action      String // create | edit | resolve_flag | confirm | lock_override
+  before      Json?
+  after       Json?
+  reason      String
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, timeEntryId])
+}
+
+model CorrectionRequest {
+  id               String        @id @default(cuid())
+  businessId       String
+  membershipId     String
+  timeEntryId      String?
+  proposedClockIn  DateTime?     @db.Timestamptz(3)
+  proposedClockOut DateTime?     @db.Timestamptz(3)
+  message          String
+  status           RequestStatus @default(pending)
+  reviewerId       String?
+  reviewerNote     String?
+  reviewedAt       DateTime?     @db.Timestamptz(3)
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pay
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PayRules {
+  id                           String    @id @default(cuid())
+  businessId                   String    @unique
+  business                     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  presetKey                    String? // e.g. "CA-ON"
+  confirmedAt                  DateTime? @db.Timestamptz(3)
+  confirmedById                String?
+  dailyThresholdHours          Decimal?  @db.Decimal(5, 2)
+  dailyMultiplier              Decimal?  @db.Decimal(4, 2)
+  dailySecondThresholdHours    Decimal?  @db.Decimal(5, 2)
+  dailySecondMultiplier        Decimal?  @db.Decimal(4, 2)
+  weeklyThresholdHours         Decimal?  @db.Decimal(5, 2)
+  weeklyMultiplier             Decimal?  @db.Decimal(4, 2)
+  minimumDailyPayHours         Decimal?  @db.Decimal(5, 2)
+  maxSplitShiftSpanHours       Decimal?  @db.Decimal(5, 2)
+  /// Holiday eligibility test inputs (§7.6.4).
+  holidayMinEmploymentDays     Int       @default(0)
+  holidayMinDaysWorkedLookback Int       @default(0)
+  holidayLookbackDays          Int       @default(28)
+  updatedAt                    DateTime  @updatedAt @db.Timestamptz(3)
+}
+
+enum PayPeriodStatus {
+  open
+  approved
+}
+
+model PayPeriod {
+  id         String          @id @default(cuid())
+  businessId String
+  startDate  DateTime        @db.Date
+  endDate    DateTime        @db.Date // inclusive
+  status     PayPeriodStatus @default(open)
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([businessId, startDate])
+}
+
+enum TimesheetStatus {
+  open
+  approved
+}
+
+model Timesheet {
+  id                     String          @id @default(cuid())
+  businessId             String
+  payPeriodId            String
+  membershipId           String
+  status                 TimesheetStatus @default(open)
+  isFinal                Boolean         @default(false)
+  /// Computed snapshot at approval time (hours, pay lines, inputs).
+  totals                 Json?
+  grossCents             Int?
+  approvedById           String?
+  approvedAt             DateTime?       @db.Timestamptz(3)
+  approvedWithExceptions Boolean         @default(false)
+  createdAt              DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime        @updatedAt @db.Timestamptz(3)
+
+  @@unique([payPeriodId, membershipId])
+  @@index([businessId])
+}
+
+model Holiday {
+  id                String   @id @default(cuid())
+  businessId        String
+  business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  date              DateTime @db.Date
+  name              String
+  isStatutory       Boolean  @default(true)
+  premiumMultiplier Decimal  @default(1.5) @db.Decimal(4, 2)
+  /// e.g. {"minEmploymentDays":90,"minDaysWorkedInLookback":0,"lookbackDays":28}; null = use PayRules defaults
+  eligibilityRule   Json?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([businessId, date, name])
+}
+
+model HolidayEntitlement {
+  id               String   @id @default(cuid())
+  businessId       String
+  holidayId        String
+  membershipId     String
+  worked           Boolean
+  eligible         Boolean
+  /// Inputs that produced the verdict (§7.6.4).
+  inputs           Json
+  premiumHours     Decimal  @default(0) @db.Decimal(7, 2)
+  amountCents      Int      @default(0)
+  overrideEligible Boolean?
+  overrideReason   String?
+  overrideById     String?
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([holidayId, membershipId])
+  @@index([businessId])
+}
+
+model VacationAccrual {
+  id           String   @id @default(cuid())
+  businessId   String
+  membershipId String
+  timesheetId  String?
+  /// Positive = accrual, negative = payout/adjustment.
+  amountCents  Int
+  kind         String // accrual | adjustment
+  reason       String?
+  actorUserId  String?
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, membershipId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Messaging & notifications
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id         String   @id @default(cuid())
+  businessId String
+  kind       String // direct | group | location | position
+  name       String?
+  autoKey    String? // e.g. "location:<id>"
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([businessId])
+}
+
+model ConversationMember {
+  id             String       @id @default(cuid())
+  businessId     String
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  membershipId   String
+  muted          Boolean      @default(false)
+  lastReadAt     DateTime?    @db.Timestamptz(3)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@unique([conversationId, membershipId])
+  @@index([businessId, membershipId])
+}
+
+model Message {
+  id                 String       @id @default(cuid())
+  businessId         String
+  conversationId     String
+  conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderMembershipId String
+  body               String
+  attachmentUrl      String?
+  createdAt          DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([conversationId, createdAt])
+  @@index([businessId])
+}
+
+model Announcement {
+  id                      String   @id @default(cuid())
+  businessId              String
+  senderMembershipId      String
+  audience                Json // {"type":"all"} | {"type":"location","id":..} | role | position
+  title                   String
+  body                    String
+  requireReadConfirmation Boolean  @default(false)
+  createdAt               DateTime @default(now()) @db.Timestamptz(3)
+
+  reads AnnouncementRead[]
+
+  @@index([businessId, createdAt])
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  businessId     String
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  membershipId   String
+  readAt         DateTime     @default(now()) @db.Timestamptz(3)
+  confirmedAt    DateTime?    @db.Timestamptz(3)
+
+  @@unique([announcementId, membershipId])
+}
+
+model Notification {
+  id           String    @id @default(cuid())
+  businessId   String
+  membershipId String
+  type         String
+  title        String
+  body         String
+  payload      Json?
+  /// Batching (§9.1): pending notifications with the same batchKey are collapsed.
+  batchKey     String?
+  flushAfter   DateTime? @db.Timestamptz(3)
+  emailedAt    DateTime? @db.Timestamptz(3)
+  readAt       DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, membershipId, readAt])
+  @@index([flushAfter])
+}
+
+model NotificationPreference {
+  id           String  @id @default(cuid())
+  businessId   String
+  membershipId String
+  type         String
+  email        Boolean @default(true)
+
+  @@unique([membershipId, type])
+  @@index([businessId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Audit & email
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  /// null for platform-level actions.
+  businessId  String?
+  actorUserId String?
+  action      String // e.g. SELF_APPROVED, ROLE_UPDATED, WAGE_CHANGED, EXPORT
+  targetType  String?
+  targetId    String?
+  data        Json?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([businessId, createdAt])
+}
+
+model EmailLog {
+  id         String         @id @default(cuid())
+  businessId String?
+  to         String
+  subject    String
+  template   String
+  html       String
+  text       String
+  providerId String?        @unique
+  status     DeliveryStatus @default(queued)
+  error      String?
+  createdAt  DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime       @updatedAt @db.Timestamptz(3)
+
+  @@index([createdAt])
+}

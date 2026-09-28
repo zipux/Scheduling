@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "dashboard": "Accueil",
+    "schedule": "Horaire",
+    "clock": "Pointage",
+    "requests": "Demandes",
+    "messages": "Messages",
+    "more": "Plus",
+    "signOut": "Se déconnecter"
+  },
+  "auth": {
+    "signInTitle": "Connexion",
+    "email": "Courriel",
+    "password": "Mot de passe",
+    "signIn": "Se connecter"
+  }
+}
