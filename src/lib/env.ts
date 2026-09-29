@@ -1,11 +1,15 @@
 import { z } from "zod";
 
 const isProd = process.env.NODE_ENV === "production";
+// `next build` imports server modules to collect page data but serves nothing,
+// so it must not need runtime secrets; the server checks them at start-up
+// (src/instrumentation.ts) instead.
+const isBuild = process.env.NEXT_PHASE === "phase-production-build";
 
 // Dev-only fallbacks so `npm run dev` works from a minimal .env. Production
 // refuses to start without real secrets (see DECISIONS.md).
 function devSecret(name: string): string {
-  if (isProd) throw new Error(`${name} must be set in production`);
+  if (isProd && !isBuild) throw new Error(`${name} must be set in production`);
   return `dev-only-insecure-${name.toLowerCase()}-change-me-0123456789`;
 }
 
@@ -25,7 +29,7 @@ let cached: Env | undefined;
 
 export function env(): Env {
   if (cached) return cached;
-  cached = schema.parse({
+  const parsed = schema.parse({
     DATABASE_URL: process.env.DATABASE_URL,
     APP_URL: process.env.APP_URL ?? process.env.BETTER_AUTH_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? devSecret("BETTER_AUTH_SECRET"),
@@ -34,7 +38,9 @@ export function env(): Env {
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET || undefined,
     EMAIL_FROM: process.env.EMAIL_FROM || undefined,
   });
-  return cached;
+  // Never keep build-time placeholders around.
+  if (!isBuild) cached = parsed;
+  return parsed;
 }
 
 export const isDev = !isProd;

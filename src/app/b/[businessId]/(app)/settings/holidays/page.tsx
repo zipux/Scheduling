@@ -3,7 +3,9 @@ import { getTranslations } from "next-intl/server";
 import { hasPermission, requireBusinessPage } from "@/server/auth/context";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionButton } from "@/components/app/action-button";
+import { CalendarX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/app/empty-state";
 import { deleteHolidayAction } from "../pay-rules/actions";
 import { AddHolidayForm, PresetButton } from "./holiday-forms";
 
@@ -23,17 +25,21 @@ export default async function HolidaysPage({ params }: PageProps<"/b/[businessId
           <PresetButton businessId={businessId} year={year + 1} label={t("addPreset", { year: year + 1 })} />
         </div>
         <AddHolidayForm businessId={businessId} />
-        <ul className="divide-y rounded-lg border text-sm" data-testid="holiday-list">
-          {holidays.map((h) => (
-            <li key={h.id} className="flex flex-wrap items-center gap-2 px-4 py-2">
-              <span className="w-24 tabular-nums">{h.date.toISOString().slice(0, 10)}</span>
-              <span className="min-w-0 flex-1 font-medium">{h.name}</span>
-              {h.isStatutory ? <Badge variant="secondary">{t("statutory")}</Badge> : <Badge variant="outline">{t("notStatutory")}</Badge>}
-              <span className="text-muted-foreground">×{Number(h.premiumMultiplier)}</span>
-              <ActionButton action={deleteHolidayAction} businessId={businessId} args={{ id: h.id }} label={t("delete")} variant="ghost" />
-            </li>
-          ))}
-        </ul>
+        {holidays.length === 0 ? (
+          <EmptyState icon={CalendarX} title={t("empty")} body={t("emptyBody")} />
+        ) : (
+          <ul className="divide-y rounded-lg border text-sm" data-testid="holiday-list">
+            {holidays.map((h) => (
+              <li key={h.id} className="flex flex-wrap items-center gap-2 px-4 py-2">
+                <span className="w-24 tabular-nums">{h.date.toISOString().slice(0, 10)}</span>
+                <span className="min-w-0 flex-1 font-medium">{h.name}</span>
+                {h.isStatutory ? <Badge variant="secondary">{t("statutory")}</Badge> : <Badge variant="outline">{t("notStatutory")}</Badge>}
+                <span className="text-muted-foreground">×{Number(h.premiumMultiplier)}</span>
+                <ActionButton action={deleteHolidayAction} businessId={businessId} args={{ id: h.id }} label={t("delete")} variant="ghost" />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </>
   );

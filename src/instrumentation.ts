@@ -1,7 +1,11 @@
 // In-process background jobs: flush batched notifications every minute (§9.1).
 // No extra infrastructure; an external cron can also POST /api/cron/notifications.
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs" || process.env.DISABLE_BACKGROUND_JOBS === "1") return;
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  // Fail at start-up, not on the first request, when production secrets are missing.
+  const { env } = await import("@/lib/env");
+  env();
+  if (process.env.DISABLE_BACKGROUND_JOBS === "1") return;
   const { flushAllDueNotifications, raiseAllMissingClockOuts } = await import("@/server/platform/notifications");
   const g = globalThis as unknown as { __notifyTimer?: ReturnType<typeof setInterval> };
   if (g.__notifyTimer) return;

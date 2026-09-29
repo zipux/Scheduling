@@ -11,3 +11,4 @@ playwright-report/
 next-env.d.ts
 .dev-uploads/
 src/generated/
+.DS_Store

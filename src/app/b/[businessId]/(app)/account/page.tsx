@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Download } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { activeMemberships, requireBusinessPage } from "@/server/auth/context";
 import { userHasPassword } from "@/server/auth/reauth";
@@ -8,6 +9,9 @@ import { WageHistory } from "@/components/app/wage-history";
 import { listWages } from "@/server/services/wages";
 import { myPreferences } from "@/server/services/notifications";
 import { NotificationPrefs } from "./notification-prefs";
+import { formatInTimeZone } from "date-fns-tz";
+import { deletionRequestedAt } from "@/server/platform/account-deletion";
+import { DeleteAccount } from "./delete-account";
 
 export async function generateMetadata() {
   const t = await getTranslations("nav");
@@ -20,6 +24,7 @@ export default async function AccountPage({ params }: PageProps<"/b/[businessId]
   const t = await getTranslations("account");
   const tn = await getTranslations("notifications");
   const memberships = await activeMemberships(ctx.userId);
+  const deletionAt = await deletionRequestedAt(ctx.userId);
   return (
     <>
       <PageHeader title={t("title")} />
@@ -41,7 +46,7 @@ export default async function AccountPage({ params }: PageProps<"/b/[businessId]
         <p className="text-sm text-muted-foreground">{tn("prefsHint")}</p>
         <NotificationPrefs businessId={businessId} prefs={await myPreferences(ctx)} />
       </section>
-      <section className="max-w-md space-y-2">
+      <section className="mb-8 max-w-md space-y-2">
         <h2 className="font-medium">{t("myBusinesses")}</h2>
         <ul className="divide-y rounded-lg border">
           {memberships.map((m) => (
@@ -53,6 +58,19 @@ export default async function AccountPage({ params }: PageProps<"/b/[businessId]
             </li>
           ))}
         </ul>
+      </section>
+      <section className="mb-8 max-w-md space-y-2">
+        <h2 className="font-medium">{t("myData")}</h2>
+        <p className="text-sm text-muted-foreground">{t("myDataHint")}</p>
+        <a href="/api/me/export" download className="inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm hover:bg-muted" data-testid="export-my-data">
+          <Download className="size-4" aria-hidden />
+          {t("exportData")}
+        </a>
+      </section>
+      <section className="max-w-md space-y-2">
+        <h2 className="font-medium">{t("deleteAccount")}</h2>
+        <p className="text-sm text-muted-foreground">{t("deleteAccountHint")}</p>
+        <DeleteAccount requestedOn={deletionAt ? formatInTimeZone(deletionAt, ctx.business.timezone, "d MMM yyyy") : null} />
       </section>
     </>
   );

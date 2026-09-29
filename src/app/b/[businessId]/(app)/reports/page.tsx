@@ -44,11 +44,11 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
           </Link>
         ))}
       </nav>
-      <div className="mb-3 flex gap-2 text-sm">
-        <Link href={`${base}?${q({ period: periodFor(ctx, addDaysKey(period.start, -1)).start })}`} className="underline">
+      <div className="mb-3 flex gap-4 text-sm">
+        <Link href={`${base}?${q({ period: periodFor(ctx, addDaysKey(period.start, -1)).start })}`} className="inline-flex min-h-11 items-center underline">
           ← {t("prev")}
         </Link>
-        <Link href={`${base}?${q({ period: addDaysKey(period.end, 1) })}`} className="underline">
+        <Link href={`${base}?${q({ period: addDaysKey(period.end, 1) })}`} className="inline-flex min-h-11 items-center underline">
           {t("next")} →
         </Link>
       </div>
@@ -56,7 +56,8 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
       {table.rows.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        // Focusable so keyboard users can scroll wide reports sideways.
+        <div className="overflow-x-auto rounded-lg border" tabIndex={0} role="region" aria-label={t(`types.${key}`)}>
           <table className="w-full text-sm" data-testid="report-table">
             <thead className="bg-muted/50">
               <tr>

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus } from "lucide-react";
+import { Briefcase, Plus } from "lucide-react";
+import { EmptyState } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,7 +75,8 @@ export function PositionsEditor({ businessId, positions }: { businessId: string;
   };
   return (
     <div className="space-y-3">
-      <ul className="divide-y rounded-lg border" data-testid="position-list">
+      {positions.length === 0 && <EmptyState icon={Briefcase} title={t("empty")} body={t("emptyBody")} />}
+      <ul className="divide-y rounded-lg border empty:hidden" data-testid="position-list">
         {positions.map((p) => (
           <li key={p.id} className="space-y-3 px-4 py-3">
             <div className="flex flex-wrap items-center gap-2">

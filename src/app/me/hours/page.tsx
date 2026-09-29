@@ -14,13 +14,14 @@ export default async function AllMyHoursPage() {
     return (e.clockOut.getTime() - e.clockIn.getTime() - breaks) / 3_600_000;
   };
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-6">
+    <main id="main" tabIndex={-1} className="mx-auto w-full max-w-2xl px-4 py-6">
       <Link href="/" className="inline-flex min-h-11 items-center text-sm underline">
         ← {t("back")}
       </Link>
       <h1 className="mt-2 text-2xl font-semibold">{t("allMyHours")}</h1>
       <p className="mb-4 text-sm text-muted-foreground">{t("allMyHoursHint")}</p>
-      <ul className="divide-y rounded-lg border text-sm" data-testid="all-my-hours">
+      {entries.length === 0 && <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">{t("allMyHoursEmpty")}</p>}
+      <ul className="divide-y rounded-lg border text-sm empty:hidden" data-testid="all-my-hours">
         {entries.map((e) => {
           const tz = e.location.timezone;
           const h = worked(e);

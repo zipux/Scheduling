@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { currentPosition, dequeue, enqueue, lastFix, queued } from "@/components/app/punch-queue";
+import { warmClockPage } from "@/components/app/service-worker";
 import { punchAction, requestCorrectionAction, syncOfflinePunchAction, type PunchResult } from "./actions";
 
 type Action = "in" | "break_start" | "break_end" | "out";
@@ -48,6 +49,9 @@ export function ClockPanel({ businessId, state }: { businessId: string; state: C
     setQueuedCount(queued(businessId).length);
     router.refresh();
   }, [businessId, router, t]);
+
+  // Keep the offline copy of this page in step with the latest status.
+  useEffect(() => warmClockPage(businessId, true), [businessId, state]);
 
   useEffect(() => {
     // Sync on page load and whenever the connection comes back.

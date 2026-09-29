@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/app/native-select";
 import { TextField } from "@/components/app/form-fields";
 import { useAction } from "@/components/app/use-action";
+import { clearOfflinePages } from "@/components/app/service-worker";
 import { enrolKioskAction } from "../actions";
 
 type Option = { businessId: string; businessName: string; locations: { id: string; name: string }[] };
@@ -26,7 +27,9 @@ export function EnrolForm({ options }: { options: Option[] }) {
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        run(() => enrolKioskAction(businessId, { locationId, name }), () => {
+        run(() => enrolKioskAction(businessId, { locationId, name }), async () => {
+          // Enrolling signs the manager out: drop their cached clock page from this shared device.
+          await clearOfflinePages();
           router.replace("/kiosk");
           router.refresh();
         });

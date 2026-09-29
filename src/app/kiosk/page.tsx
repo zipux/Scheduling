@@ -16,7 +16,7 @@ export default async function KioskPage() {
   const device = await authenticateKiosk((await cookies()).get(KIOSK_COOKIE)?.value);
   if (!device) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 text-center">
+      <main id="main" tabIndex={-1} className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 text-center">
         <h1 className="text-2xl font-semibold">{t("notEnrolled")}</h1>
         <p className="mt-2 text-muted-foreground">{t("notEnrolledBody")}</p>
         <Link href="/" className="mt-6 inline-flex min-h-11 items-center justify-center underline">

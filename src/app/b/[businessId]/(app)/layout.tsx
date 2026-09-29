@@ -6,6 +6,7 @@ import { BottomTabBar, SideNav, type NavKey } from "@/components/app/nav";
 import { BusinessSwitcher } from "@/components/app/business-switcher";
 import { PulseProvider } from "@/components/app/pulse";
 import { NotificationBell } from "@/components/app/notification-bell";
+import { WarmClockPage } from "@/components/app/service-worker";
 
 export default async function BusinessLayout({ children, params }: LayoutProps<"/b/[businessId]">) {
   const { businessId } = await params;
@@ -47,11 +48,12 @@ export default async function BusinessLayout({ children, params }: LayoutProps<"
       </header>
       <div className="flex flex-1">
         <SideNav base={base} items={items} />
-        <main id="main" className="pb-tabbar w-full min-w-0 flex-1 px-4 pt-4 md:px-6">
+        <main id="main" tabIndex={-1} className="pb-tabbar w-full min-w-0 flex-1 px-4 pt-4 md:px-6">
           {children}
         </main>
       </div>
       <BottomTabBar base={base} />
+      <WarmClockPage businessId={businessId} />
     </div>
     </PulseProvider>
   );

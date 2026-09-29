@@ -72,10 +72,6 @@
     "weekWages": "This week's Scheduled wages",
     "weekWagesHint": "Scheduled hours × wage. Not labour cost: excludes payroll contributions and vacation pay."
   },
-  "placeholder": {
-    "notYet": "Not available yet",
-    "notYetBody": "This part of the app is coming in a later release."
-  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -84,7 +80,11 @@
     "error": "Something went wrong.",
     "tryAgain": "Try again",
     "notFound": "Page not found",
-    "notFoundBody": "It may have moved, or you may not have access to it."
+    "notFoundBody": "It may have moved, or you may not have access to it.",
+    "errorBody": "This page couldn't load. Your data is safe — try again, or go back to the start.",
+    "errorRef": "Reference: {digest}",
+    "home": "Go to start",
+    "skipToContent": "Skip to content"
   },
   "devEmails": {
     "title": "Dev emails",
@@ -168,7 +168,10 @@
       "accepted": "Accepted",
       "revoked": "Revoked",
       "expired": "Expired"
-    }
+    },
+    "deletionRequests": "Account deletion requests",
+    "deletionRequestsHint": "Nothing has been deleted: erasing an account is a supervised step. Businesses must keep payroll records for staff who worked for them.",
+    "requestedOn": "Requested {date}"
   },
   "profile": {
     "title": "Complete your profile",
@@ -441,7 +444,9 @@
       "archived": "Archived",
       "new": "New position",
       "ageBadge": "{age}+",
-      "summary": "Departments, colours and minimum ages."
+      "summary": "Departments, colours and minimum ages.",
+      "empty": "No positions yet",
+      "emptyBody": "Add the jobs people do here (Server, Cook…) so shifts, wages and pickups can use them."
     },
     "blackouts": {
       "title": "Blackout dates",
@@ -455,7 +460,9 @@
       "reasonHint": "Shown to staff, e.g. \"Holiday season\".",
       "add": "Add blackout",
       "saved": "Blackout added.",
-      "delete": "Delete"
+      "delete": "Delete",
+      "empty": "No upcoming blackout dates",
+      "emptyBody": "Time off can be requested for any date."
     },
     "kiosks": {
       "title": "Kiosk devices",
@@ -514,7 +521,20 @@
     "savePin": "Change PIN",
     "pinChanged": "PIN changed.",
     "myBusinesses": "Businesses I belong to",
-    "myPay": "My pay"
+    "myPay": "My pay",
+    "myData": "My data",
+    "myDataHint": "Download a copy of your profile, wages, shifts, requests, time entries and the messages you sent, for every business you belong to. Messages other people sent you are listed without their text.",
+    "exportData": "Download my data (JSON)",
+    "deleteAccount": "Delete my account",
+    "deleteAccountHint": "The platform administrator removes your sign-in and personal details. Businesses you worked for keep the payroll records the law requires them to keep (hours, pay, time entries). Download your data first if you want a copy.",
+    "requestDeletion": "Request account deletion",
+    "confirmDeletion": "Send a deletion request for your whole account, in every business you belong to? You can cancel it until it has been processed.",
+    "confirmDeletionButton": "Yes, request deletion",
+    "keepAccount": "Keep my account",
+    "deletionSent": "Deletion requested.",
+    "deletionRequested": "You asked for your account to be deleted on {date}. The platform administrator will process it.",
+    "cancelDeletion": "Cancel the request",
+    "deletionCancelled": "Deletion request cancelled."
   },
   "wages": {
     "none": "No wage on file.",
@@ -625,7 +645,8 @@
       "POSITION": "doesn't work this position",
       "LOCATION": "not assigned to this location",
       "INACTIVE": "no longer has access"
-    }
+    },
+    "weekGrid": "Week schedule"
   },
   "warnings": {
     "unavailableDay": "Marked unavailable this day",
@@ -808,7 +829,8 @@
     "actualOut": "Actual finish",
     "whatHappened": "What happened?",
     "send": "Send",
-    "correctionSent": "Correction sent to your manager."
+    "correctionSent": "Correction sent to your manager.",
+    "allMyHoursEmpty": "No time recorded yet."
   },
   "timeclock": {
     "title": "Time clock review",
@@ -920,7 +942,9 @@
     "added": "Holiday added.",
     "statutory": "Statutory",
     "notStatutory": "Not statutory",
-    "delete": "Delete"
+    "delete": "Delete",
+    "empty": "No holidays yet",
+    "emptyBody": "Add this year's provincial statutory holidays with the button above, or add your own."
   },
   "timesheets": {
     "title": "Timesheets",
@@ -1063,5 +1087,12 @@
     "imageFrom": "Image from {name}",
     "attachImage": "Attach an image",
     "message": "Message"
+  },
+  "offline": {
+    "title": "You're offline",
+    "body": "This page needs a connection. The time clock still works offline: punches are saved on this device and sent when you're back online.",
+    "openClock": "Open the time clock",
+    "retry": "Try again",
+    "banner": "You're offline. Punches are saved on this device and sent when you reconnect."
   }
 }

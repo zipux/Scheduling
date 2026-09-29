@@ -73,5 +73,5 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
     }
   }
 
-  return <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-4 py-10">{body}</main>;
+  return <main id="main" tabIndex={-1} className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-4 py-10">{body}</main>;
 }

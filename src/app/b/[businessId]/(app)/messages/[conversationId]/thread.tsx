@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Bell, BellOff, ImagePlus, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,13 @@ const POLL_MS = 5000;
 
 export function Thread({ businessId, initial, tz }: { businessId: string; initial: View; tz: string }) {
   const t = useTranslations("messages");
+  const locale = useLocale();
   const router = useRouter();
   const [messages, setMessages] = useState(initial.messages);
   const [muted, setMuted] = useState(initial.muted);
   const [body, setBody] = useState("");
   const [pending, start] = useTransition();
-  const bottom = useRef<HTMLDivElement>(null);
+  const bottom = useRef<HTMLLIElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const lastAt = messages.at(-1)?.at ?? null;
 
@@ -67,7 +68,7 @@ export function Thread({ businessId, initial, tz }: { businessId: string; initia
     });
   }
 
-  const fmt = (iso: string) => new Intl.DateTimeFormat([], { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+  const fmt = (iso: string) => new Intl.DateTimeFormat(locale, { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
@@ -110,7 +111,7 @@ export function Thread({ businessId, initial, tz }: { businessId: string; initia
             </div>
           </li>
         ))}
-        <div ref={bottom} />
+        <li ref={bottom} aria-hidden="true" />
       </ol>
       <form
         className="flex items-end gap-2 border-t p-2"

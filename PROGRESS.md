@@ -196,3 +196,24 @@ Stopped on the owner's instruction after Phase 8. Phase 9 (PWA and offline shell
 All four Blocked items and both review items are decided and applied (DECISIONS.md, last eight entries): weekly/bi-weekly periods only; mixed-rate overtime at the weighted-average rate; `paidWhenNotTaken` deleted; average-day formula unchanged; period ends at `workDayStart` the day after its last date, with approval gated on it; holiday multiplier is the total rate plus `holidayPremiumRequiresEligibility` (CA-BC on); wages per work-day. Nothing is blocked any more except the `WEEK_UNDEFINED` guard for legacy semi-monthly/monthly data and `NO_WAGE` / `AVERAGE_DAY_NOT_CONFIGURED`. Expected values updated in `tests/unit/pay-rules.test.ts`.
 
 **Next:** Phase 9 — not started (waiting for the owner).
+
+## Phase 9 — Polish — ✅ complete (2026-09-29)
+
+**What works**
+- **PWA:** installable manifest (icons, maskable icon, "Clock in / out" shortcut). Hand-written, network-first service worker (`public/sw.js`). Offline, the personal clock page opens from the device and punches go to the existing device queue, which syncs on reconnect. Any other page shows `/offline`, which links to the clock. The app keeps the clock page cached ("warms" it on business pages and after each punch). The cache is cleared on sign-out, on kiosk enrolment and when the sign-in page loads. An offline banner shows on every page.
+- **Accessibility pass (WCAG 2.1 AA basics):** axe scans every screen for owner, employee and platform admin, on mobile and desktop. Mobile also checks for no horizontal scroll and 44 px touch targets. Fixes: darker muted/destructive colours for AA contrast, past shifts no longer faded with opacity, focusable labelled regions for the schedule grid and report tables, a skip link to `main` on every page, the message-thread list markup, and a locale hydration mismatch in message timestamps.
+- **Empty / loading / error states:** empty states for holidays, blackout dates, positions and All my hours (the other lists already had them). Loading skeletons for Schedule, Clock and Requests. Translated error boundaries (root, and business pages with the navigation kept) plus a last-resort `global-error`.
+- **§10.1 data export:** Account → "Download my data (JSON)", covering every business the user belongs to. Only messages they sent have text; received messages and announcements are metadata only. No PIN hash, no drafts. Rate-limited (5/hour) and audited per business.
+- **Request account deletion** (§10 Account): request and cancel on the Account page. Audited, platform admins are emailed, and a queue shows on `/admin`. Nothing is erased automatically (see DECISIONS).
+- **Deployability:** `next build` works without production secrets again (it failed before this phase). The server checks secrets at start-up. Security headers are set, `/sw.js` is served `no-cache`, `npm run admin:create` creates the first platform admin, and a `docker-compose.yml` is provided for local Postgres.
+- **README:** setup, every env var, seed accounts with PINs, how to run each test suite, deployment checklist.
+
+**Tests**: typecheck and lint clean. Unit 199, integration 152, e2e 98 (+12 skipped by design) on mobile 375 px + desktop (`npm run test:e2e`). `npm run test:e2e:prod` (accessibility + Phase 9 specs against a production build) passes, including punching offline from the cached clock page.
+
+**Known issues / notes**
+- Under `next dev` a cached page can't run its scripts offline (Next's hot-reload client is loaded at runtime), so the offline punch is covered only by `test:e2e:prod`. The dev run still checks that the clock page and the offline page are served offline.
+- `docker-compose.yml` is untested (no Docker on the build machine). This build ran against the hosted Neon databases.
+- Still open from earlier phases: web push (interface ready), profile photos, the S3 adapter against a real bucket, and what "erasure" should keep once a deletion request is processed.
+- The accessibility check is automated (axe + touch targets + a keyboard skip-link test). A manual screen-reader walk-through on a real phone has not been done.
+
+**Next:** all nine phases are complete. Next steps: the owner's review, then a supervised deployment (README §5).

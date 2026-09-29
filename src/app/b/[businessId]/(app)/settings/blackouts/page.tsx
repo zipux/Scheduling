@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/app/page-header";
 import { ActionButton } from "@/components/app/action-button";
 import { deleteBlackoutAction } from "../../requests/actions";
 import { BlackoutForm } from "./blackout-form";
+import { CalendarCheck } from "lucide-react";
+import { EmptyState } from "@/components/app/empty-state";
 
 export default async function BlackoutsPage({ params }: PageProps<"/b/[businessId]/settings/blackouts">) {
   const { businessId } = await params;
@@ -20,7 +22,9 @@ export default async function BlackoutsPage({ params }: PageProps<"/b/[businessI
       <PageHeader title={t("title")} description={t("description")} />
       <div className="max-w-lg space-y-4">
         <BlackoutForm businessId={businessId} locations={locations.map((l) => ({ id: l.id, name: l.name }))} canAll={hasPermission(ctx, "locations.scope_all")} />
-        {list.length > 0 && (
+        {list.length === 0 ? (
+          <EmptyState icon={CalendarCheck} title={t("empty")} body={t("emptyBody")} />
+        ) : (
           <ul className="divide-y rounded-lg border" data-testid="blackout-list">
             {list.map((b) => (
               <li key={b.id} className="flex items-center gap-2 px-4 py-3 text-sm">

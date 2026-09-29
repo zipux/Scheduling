@@ -11,7 +11,7 @@ export default async function DevEmailsPage() {
   const t = await getTranslations("devEmails");
   const emails = await rawDb.emailLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6">
+    <main id="main" tabIndex={-1} className="mx-auto w-full max-w-3xl px-4 py-6">
       <h1 className="text-xl font-semibold">{t("title")}</h1>
       <p className="mb-4 text-sm text-muted-foreground">{t("subtitle")}</p>
       {emails.length === 0 ? (

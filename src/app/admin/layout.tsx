@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           {t("myBusinesses")}
         </Link>
       </header>
-      <main className="mx-auto w-full max-w-4xl px-4 py-6">{children}</main>
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-4xl px-4 py-6">{children}</main>
       <div className="mx-auto max-w-4xl px-4 pb-10">
         <SignOutButton />
       </div>

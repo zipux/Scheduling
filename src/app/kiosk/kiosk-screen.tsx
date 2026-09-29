@@ -76,7 +76,7 @@ export function KioskScreen({ deviceName, location, staff }: { deviceName: strin
   }
 
   return (
-    <main className="flex min-h-dvh flex-col bg-background">
+    <main id="main" tabIndex={-1} className="flex min-h-dvh flex-col bg-background">
       <header className="flex items-center gap-3 border-b px-4 py-3">
         <div className="flex-1">
           <p className="font-semibold">{location}</p>

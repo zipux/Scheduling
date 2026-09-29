@@ -10,7 +10,7 @@ export default async function KioskEnrolPage() {
   const t = await getTranslations("kiosk");
   const options = await enrolmentOptions(session.user.id);
   return (
-    <main className="mx-auto max-w-md px-4 py-10">
+    <main id="main" tabIndex={-1} className="mx-auto max-w-md px-4 py-10">
       <h1 className="text-2xl font-semibold">{t("enrolTitle")}</h1>
       <p className="mt-2 mb-6 text-sm text-muted-foreground">{t("enrolBody")}</p>
       {options.length === 0 ? <p>{t("enrolNone")}</p> : <EnrolForm options={options} />}

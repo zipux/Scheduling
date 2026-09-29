@@ -11,7 +11,7 @@ export default async function DevEmailPage({ params }: PageProps<"/dev/emails/[i
   const email = await rawDb.emailLog.findUnique({ where: { id } });
   if (!email) notFound();
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6">
+    <main id="main" tabIndex={-1} className="mx-auto w-full max-w-3xl px-4 py-6">
       <Link href="/dev/emails" className="inline-flex min-h-11 items-center text-sm underline">
         ← All emails
       </Link>

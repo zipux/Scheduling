@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Plus } from "lucide-react";
+import { formatInTimeZone } from "date-fns-tz";
 import { listBusinesses } from "@/server/platform/admin";
+import { listDeletionRequests } from "@/server/platform/account-deletion";
 import { invitationDisplayStatus } from "@/server/services/invitations";
 import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
@@ -11,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminHome() {
   const t = await getTranslations("admin");
-  const businesses = await listBusinesses();
+  const [businesses, deletions] = await Promise.all([listBusinesses(), listDeletionRequests()]);
   return (
     <>
       <PageHeader
@@ -54,6 +56,25 @@ export default async function AdminHome() {
             );
           })}
         </ul>
+      )}
+      {deletions.length > 0 && (
+        <section className="mt-8 space-y-2" data-testid="deletion-requests">
+          <h2 className="font-medium">{t("deletionRequests")}</h2>
+          <p className="text-sm text-muted-foreground">{t("deletionRequestsHint")}</p>
+          <ul className="divide-y rounded-lg border">
+            {deletions.map((u) => (
+              <li key={u.id} className="px-4 py-3">
+                <span className="block font-medium">
+                  {u.name} · {u.email}
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  {t("requestedOn", { date: formatInTimeZone(u.deletionRequestedAt!, "UTC", "d MMM yyyy") })}
+                  {u.memberships.length > 0 && ` · ${u.memberships.map((m) => m.business.name).join(", ")}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </>
   );

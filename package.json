@@ -12,13 +12,15 @@
     "test:integration": "vitest run --project integration",
     "test:all": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:prod": "E2E_PROD=1 playwright test tests/e2e/polish.spec.ts tests/e2e/a11y.spec.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:test:deploy": "tsx scripts/with-test-db.ts prisma migrate deploy",
     "db:test:seed": "tsx scripts/with-test-db.ts tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "admin:create": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -50,6 +52,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.22",

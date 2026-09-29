@@ -61,7 +61,7 @@ export function invitationEmail(p: { url: string; businessName: string; inviterN
   );
 }
 
-export function notificationEmail(p: { title: string; body: string; url: string }) {
+export function notificationEmail(p: { title: string; body: string; url: string; cta?: string }) {
   return out(
     p.title,
     <Layout preview={p.title}>
@@ -69,7 +69,7 @@ export function notificationEmail(p: { title: string; body: string; url: string 
       <Text>{p.body}</Text>
       <Section>
         <Button href={p.url} style={button}>
-          Open my schedule
+          {p.cta ?? "Open my schedule"}
         </Button>
       </Section>
     </Layout>,

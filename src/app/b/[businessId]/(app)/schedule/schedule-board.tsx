@@ -73,7 +73,8 @@ function ShiftChip({
   const cls = cn(
     "block w-full rounded-md border-l-4 bg-card px-2 py-1 text-left text-xs shadow-sm ring-1 ring-border",
     s.status === "draft" && "border-dashed bg-muted/40",
-    s.past && "opacity-60",
+    // Past shifts are muted by background, not opacity, so their text keeps its contrast.
+    s.past && "bg-muted shadow-none",
     s.warnings.length > 0 && "ring-amber-400",
   );
   const style = { borderLeftColor: s.color };
@@ -228,7 +229,7 @@ export function ScheduleBoard({ data }: { data: BoardData }) {
       )}
 
       {/* Desktop grid: employees × days */}
-      <div className="hidden overflow-x-auto rounded-lg border md:block" data-testid="schedule-grid">
+      <div className="hidden overflow-x-auto rounded-lg border md:block" data-testid="schedule-grid" tabIndex={0} role="region" aria-label={t("weekGrid")}>
         <table className="w-full min-w-[900px] table-fixed border-collapse text-sm">
           <thead>
             <tr className="bg-muted/50">

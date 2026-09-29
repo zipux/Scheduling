@@ -1,0 +1,24 @@
+# Local PostgreSQL for development and tests (Spec §2, rule 4).
+# Matches the connection strings in .env.example:
+#   DATABASE_URL       postgresql://user:password@localhost:5432/scheduling
+#   TEST_DATABASE_URL  postgresql://user:password@localhost:5432/scheduling_test
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: scheduling
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d scheduling"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  pgdata:
